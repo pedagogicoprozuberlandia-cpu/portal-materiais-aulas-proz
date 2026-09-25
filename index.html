@@ -158,7 +158,13 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",
 const urlOk = u => { try { return new URL(u).protocol==="https:"; } catch { return false; } };
 let tT; function toast(m,e){const t=$("toast");t.textContent=m;t.className=e?"erro":"";t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,3500)}
 function erroMsg(e){const m=e?.message||String(e);if(/Invalid login/i.test(m))return"E-mail ou senha incorretos.";if(/row-level/i.test(m))return"Sem permissão. Entre com o login da coordenação.";return m}
-const ordenar = arr => arr.sort((a,b)=>(a.nome||"").localeCompare(b.nome||"","pt-BR") || (a.turma||"").localeCompare(b.turma||"","pt-BR"));
+const TURNOS=["Manhã","Tarde","Noite"];
+function normTurno(t){ const k=String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+  if(!k) return ""; if(k.startsWith("manh")||k.startsWith("matut")) return "Manhã"; if(k.startsWith("tard")||k.startsWith("vesp")) return "Tarde";
+  if(k.startsWith("noit")||k.startsWith("notu")) return "Noite"; return String(t).trim(); }
+const ordTurno=t=>{ const i=TURNOS.indexOf(t); return i<0?9:i; };
+const selTurno=(cls,id,val)=>`<select ${id?`id="${id}"`:""} class="${cls}"><option value="">—</option>${TURNOS.map(t=>`<option ${normTurno(val)===t?"selected":""}>${t}</option>`).join("")}${val&&!TURNOS.includes(normTurno(val))?`<option selected>${esc(val)}</option>`:""}</select>`;
+const ordenar = arr => arr.sort((a,b)=>(a.nome||"").localeCompare(b.nome||"","pt-BR") || ordTurno(a.turma)-ordTurno(b.turma));
 
 async function carregar(){
   if(!configurado){ S.cursos=[]; S.disc=[]; return; }
@@ -208,7 +214,7 @@ function renderHome(){
 function renderCurso(){
   const c=cursoDe(S.curso); if(!c) return irHome();
   const lista=S.disc.filter(d=>d.curso_id===c.id&&d.ativo);
-  const turmas=[...new Set(lista.map(d=>d.turma).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const turmas=[...new Set(lista.map(d=>d.turma).filter(Boolean))].sort((a,b)=>ordTurno(a)-ordTurno(b)||a.localeCompare(b,"pt-BR"));
   $("hero").innerHTML=`<button class="navbtn" onclick="irHome()">← Todos os cursos</button><h2 style="margin-top:14px">${esc(c.nome)}</h2><p>Toque na sua disciplina para ver as aulas. Não precisa de login.</p><button class="ajudaBtn" onclick="ajuda()">❓ Precisa de ajuda?</button>`;
   $("app").innerHTML=`
     <div class="painel" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
@@ -301,7 +307,7 @@ function abaDisc(){
       <div class="form-lin">
         <div><label for="nN">Disciplina *</label><input id="nN" required placeholder="Ex.: Farmacologia"></div>
         <div><label for="nP">Professor</label><input id="nP" list="lp" placeholder="Nome do professor"></div>
-        <div><label for="nT">Turno / Turma</label><input id="nT" list="lt" placeholder="Ex.: Noite"></div>
+        <div><label for="nT">Turno</label>${selTurno("","nT","")}</div>
         <div><label for="nL">Link da pasta da disciplina</label><input id="nL" type="url" placeholder="cole o link da pasta"></div>
         <button class="btn prim" type="submit">Adicionar</button>
       </div></form>
@@ -312,12 +318,12 @@ function abaDisc(){
       <button class="btn peq" onclick="visTodas(true)">👁 Mostrar todas deste curso</button>
       <button class="btn peq" onclick="visTodas(false)">🚫 Ocultar todas deste curso</button></div>`:""}
     <div class="tab-wrap"><table>
-      <thead><tr><th>Disciplina</th><th>Professor</th><th>Turno / Turma</th><th>Link da pasta da disciplina</th><th>Visível</th><th></th></tr></thead>
+      <thead><tr><th>Disciplina</th><th>Professor</th><th>Turno</th><th>Link da pasta da disciplina</th><th>Visível</th><th></th></tr></thead>
       <tbody>${lista.length?lista.map(d=>`
         <tr data-id="${d.id}" class="${d.ativo?"":"oculta"}">
           <td><input class="eN" value="${esc(d.nome)}"></td>
           <td><input class="eP" list="lp" value="${esc(d.professor)}"></td>
-          <td><input class="eT" list="lt" value="${esc(d.turma)}"></td>
+          <td>${selTurno("eT","",d.turma)}</td>
           <td><input class="eL" type="url" value="${esc(d.link)}" placeholder="cole o link da pasta" style="${urlOk(d.link)?"":"border-color:#e0a82e;background:#fffbea"}">${urlOk(d.link)?"":`<div class="dica" style="color:#8a5a12">⚠ sem link: abre a pasta do curso</div>`}</td>
           <td style="text-align:center"><label class="vis"><input class="eA" type="checkbox" style="width:auto" ${d.ativo?"checked":""}> <span>${d.ativo?"👁 Visível":"🚫 Oculta"}</span></label></td>
           <td style="white-space:nowrap"><button class="btn peq prim bS" hidden>Salvar</button> <button class="btn peq perigo bX">Excluir</button></td>
@@ -331,7 +337,7 @@ function abaDisc(){
     if(["nN","nP","nT","nL"].some(k=>rasc[k])) $("fn").insertAdjacentHTML("beforeend",`<div class="dica" style="margin-top:6px">✏️ Rascunho recuperado. Continue de onde parou.</div>`); }
   ["nN","nP","nT","nL"].forEach(k=>$(k).addEventListener("input",()=>{ const r={curso:S.filtroCurso}; ["nN","nP","nT","nL"].forEach(x=>r[x]=$(x).value); LS.set("proz_rascunho_nova",r); }));
   $("fn").onsubmit=async ev=>{ev.preventDefault();
-    const corpo={curso_id:S.filtroCurso,nome:$("nN").value.trim(),professor:$("nP").value.trim()||null,turma:$("nT").value.trim()||null,link:$("nL").value.trim()||null};
+    const corpo={curso_id:S.filtroCurso,nome:$("nN").value.trim(),professor:$("nP").value.trim()||null,turma:$("nT").value||null,link:$("nL").value.trim()||null};
     if(corpo.link&&!urlOk(corpo.link)){toast("O link precisa começar com https://",true);return;}
     const {data,error}=await sb.from("disciplinas").insert(corpo).select().single();
     if(error){toast(erroMsg(error),true);return;}
@@ -340,7 +346,7 @@ function abaDisc(){
     const id=tr.dataset.id, bS=tr.querySelector(".bS"), bX=tr.querySelector(".bX");
     const guardar=()=>{ const e=LS.get("proz_edicoes",{}); e[id]={n:tr.querySelector(".eN").value,p:tr.querySelector(".eP").value,t:tr.querySelector(".eT").value,l:tr.querySelector(".eL").value,a:tr.querySelector(".eA").checked}; LS.set("proz_edicoes",e); };
     const marcar=()=>{tr.classList.add("mudou");bS.hidden=false;abaDiscAviso();};
-    tr.querySelectorAll("input:not(.eA)").forEach(i=>i.addEventListener("input",()=>{marcar();guardar();}));
+    tr.querySelectorAll("input:not(.eA), select").forEach(i=>i.addEventListener("input",()=>{marcar();guardar();}));
     tr.querySelector(".eA").addEventListener("change",async ev=>{
       const on=ev.target.checked; tr.querySelector(".vis span").textContent=on?"👁 Visível":"🚫 Oculta"; tr.classList.toggle("oculta",!on);
       const {error}=await sb.from("disciplinas").update({ativo:on,atualizado_em:new Date().toISOString()}).eq("id",id);
@@ -349,7 +355,7 @@ function abaDisc(){
     const pend=LS.get("proz_edicoes",{})[id];
     if(pend){ tr.querySelector(".eN").value=pend.n; tr.querySelector(".eP").value=pend.p; tr.querySelector(".eT").value=pend.t; tr.querySelector(".eL").value=pend.l; marcar(); }
     bS.onclick=async()=>{
-      const corpo={nome:tr.querySelector(".eN").value.trim(),professor:tr.querySelector(".eP").value.trim()||null,turma:tr.querySelector(".eT").value.trim()||null,
+      const corpo={nome:tr.querySelector(".eN").value.trim(),professor:tr.querySelector(".eP").value.trim()||null,turma:tr.querySelector(".eT").value||null,
         link:tr.querySelector(".eL").value.trim()||null,ativo:tr.querySelector(".eA").checked,atualizado_em:new Date().toISOString()};
       if(!corpo.nome){toast("A disciplina precisa de um nome.",true);return;}
       if(corpo.link&&!urlOk(corpo.link)){toast("O link precisa começar com https://",true);return;}
@@ -611,6 +617,7 @@ async function lerPlanilha(arquivo){
 function analisar(linhas, nomeArq){
   const vistos=new Set();
   S._imp = linhas.map(o=>{
+    o.turma=normTurno(o.turma);
     const r={...o, status:"", msg:""};
     const c=acharCurso(o.curso);
     if(!o.curso){ r.status="err"; r.msg="Falta o curso"; return r; }
