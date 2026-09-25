@@ -101,6 +101,15 @@
   .drop.over{background:var(--teal-claro);border-color:var(--teal)}
   .st{font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
   .st.nova{background:#e5f5ec;color:#1e7d4f}.st.atu{background:#e8effa;color:#2d5fa0}.st.err{background:#fde8e6;color:#b42318}.st.igual{background:#eef1f4;color:#5d6d7c}
+  .aulas{display:flex;flex-direction:column;gap:10px}
+  .aula{background:#fff;border:1px solid var(--linha);border-radius:12px;padding:12px 14px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;box-shadow:0 2px 8px rgba(60,30,110,.05)}
+  .aula .ic{width:42px;height:42px;border-radius:9px;display:grid;place-items:center;color:#fff;font-weight:700;font-size:.72rem;flex:none}
+  .aula .nm{flex:1;min-width:180px;font-weight:700;font-size:1.02rem;word-break:break-word}
+  .aula .nm small{display:block;font-weight:400;color:var(--suave);font-size:.82rem}
+  .aula .bts{display:flex;gap:8px;flex-wrap:wrap}
+  .aula .cta{margin-top:0;padding:9px 16px;font-size:1rem}
+  .aula.pasta{cursor:pointer}.aula.pasta:hover{border-color:var(--teal)}
+  .carregando{padding:30px;text-align:center;color:var(--suave)}
   #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--azul);color:#fff;padding:10px 18px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:9;max-width:calc(100% - 32px)}
   #toast.erro{background:var(--erro)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -124,6 +133,9 @@
 /* ============ CONFIGURAÇÃO (Supabase > Project Settings > API) ============ */
 const SUPABASE_URL = "https://qipchmwlsyzrbszsxwdo.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpcGNobXdsc3l6cmJzenN4d2RvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzNTU1MTQsImV4cCI6MjEwNTkzMTUxNH0.CT8mHhpTW0RGT9EFTWVduyU7nH1u8Lb2YBAJJmxkMlE";
+// Chave do Google (Drive API) para listar as aulas dentro das pastas.
+// Deixe "" para o portal só abrir a pasta do Google Drive.
+const GOOGLE_API_KEY = "AIzaSyCy8eVR-8llTIqv_ZaB3Yn3_cpvOnlz4ns";
 /* ========================================================================== */
 
 const configurado = !SUPABASE_URL.startsWith("COLE_AQUI");
@@ -151,6 +163,7 @@ const cursoDe = id => S.cursos.find(c=>c.id===id);
 function setHash(h){ try{ history.replaceState(null,"",h?("#"+h):location.pathname+location.search); }catch{} }
 function irHome(){ S.tela="home"; S.curso=null; setHash(""); render(); window.scrollTo({top:0}); }
 function abrirCurso(id){ S.tela="curso"; S.curso=id; setHash("c-"+id); render(); window.scrollTo({top:0}); }
+function abrirDisc(id){ const d=S.disc.find(x=>x.id===id); if(!d) return; S.tela="disc"; S.curso=d.curso_id; S.discAtual=id; S.pilha=[]; setHash("d-"+id); render(); window.scrollTo({top:0}); }
 function irCoord(){ S.tela="coord"; render(); window.scrollTo({top:0}); }
 
 function render(){
@@ -158,6 +171,7 @@ function render(){
   $("navCoord").onclick = S.tela==="coord" ? irHome : irCoord;
   if(S.tela==="coord") return renderCoord();
   if(S.tela==="curso") return renderCurso();
+  if(S.tela==="disc") return renderDisc();
   renderHome();
 }
 
@@ -178,7 +192,7 @@ function renderCurso(){
   const c=cursoDe(S.curso); if(!c) return irHome();
   const lista=S.disc.filter(d=>d.curso_id===c.id&&d.ativo);
   const turmas=[...new Set(lista.map(d=>d.turma).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
-  $("hero").innerHTML=`<button class="navbtn" onclick="irHome()">← Todos os cursos</button><h2 style="margin-top:14px">${esc(c.nome)}</h2><p>Toque em <b>Abrir aula</b> para ler no celular, ou em <b>Baixar</b> para guardar o arquivo. Não precisa de login.</p><button class="ajudaBtn" onclick="ajuda()">❓ Precisa de ajuda?</button>`;
+  $("hero").innerHTML=`<button class="navbtn" onclick="irHome()">← Todos os cursos</button><h2 style="margin-top:14px">${esc(c.nome)}</h2><p>Toque na sua disciplina para ver as aulas. Não precisa de login.</p><button class="ajudaBtn" onclick="ajuda()">❓ Precisa de ajuda?</button>`;
   $("app").innerHTML=`
     <div class="painel" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <div style="flex:1;min-width:200px"><input id="bD" type="search" placeholder="Buscar disciplina ou professor…"></div>
@@ -193,6 +207,8 @@ function renderCurso(){
       const link=urlOk(d.link)?d.link:(urlOk(c.link)?c.link:null);
       const corpo=`${d.turma?`<div><span class="tag cinza">${esc(d.turma)}</span></div>`:""}<h3>${esc(d.nome)}</h3>
         <div class="desc">${d.professor?`Prof. ${esc(d.professor)}`:"Professor a definir"}</div>`;
+      if(link && GOOGLE_API_KEY && pastaId(link)) return `<div class="card clic" tabindex="0" onclick="abrirDisc('${d.id}')" onkeydown="if(event.key==='Enter')abrirDisc('${d.id}')">${corpo}
+          <span class="cta" style="background:${esc(c.cor)}">📚 Ver aulas →</span></div>`;
       return link ? `<div class="card">${corpo}<div class="acoes">
           <a class="cta" style="background:${esc(c.cor)}" href="${esc(link)}" target="_blank" rel="noopener">📖 Abrir aula</a>
           <button class="cta sec" data-l="${esc(link)}" data-n="${esc(d.nome)}" onclick="guiaBaixar(this.dataset.l,this.dataset.n)">⬇ Baixar</button></div></div>`
@@ -264,7 +280,7 @@ function abaDisc(){
           <td style="white-space:nowrap"><button class="btn peq prim bS" hidden>Salvar</button> <button class="btn peq perigo bX">Excluir</button></td>
         </tr>`).join(""):`<tr><td colspan="6" class="dica" style="padding:20px;text-align:center">Nenhuma disciplina neste curso. Adicione acima.</td></tr>`}
       </tbody></table></div>
-    <p class="dica">Dica: edite direto na tabela (ex.: troque o professor ou cole o link) e clique em <b>Salvar</b> na linha.<br>Link da pasta: no OneDrive, botão direito na pasta da disciplina → <b>Compartilhar</b> → <b>Qualquer pessoa com o link</b> + <b>Pode exibir</b> → <b>Copiar link</b>.</p>`;
+    <p class="dica">Dica: edite direto na tabela (ex.: troque o professor ou cole o link) e clique em <b>Salvar</b> na linha.<br>Link da pasta: no Google Drive, botão direito na pasta da disciplina → <b>Compartilhar</b> → <b>Copiar link</b> (a pasta precisa estar como "Qualquer pessoa com o link" · Leitor).</p>`;
   $("selC").onchange=e=>{S.filtroCurso=e.target.value;abaDisc();};
   $("fn").onsubmit=async ev=>{ev.preventDefault();
     const corpo={curso_id:S.filtroCurso,nome:$("nN").value.trim(),professor:$("nP").value.trim()||null,turma:$("nT").value.trim()||null,link:$("nL").value.trim()||null};
@@ -290,7 +306,7 @@ function abaDisc(){
       if(!bX.classList.contains("conf")){bX.classList.add("conf");bX.textContent="Confirmar";setTimeout(()=>{bX.classList.remove("conf");bX.textContent="Excluir"},4000);return;}
       const {error}=await sb.from("disciplinas").delete().eq("id",id);
       if(error){toast(erroMsg(error),true);return;}
-      S.disc=S.disc.filter(d=>d.id!==id); toast("Disciplina removida do portal (a pasta no OneDrive continua)."); abaDisc();
+      S.disc=S.disc.filter(d=>d.id!==id); toast("Disciplina removida do portal (a pasta no Google Drive continua)."); abaDisc();
     };
   });
 }
@@ -325,7 +341,7 @@ function abaTroca(){
 /* --- Cursos --- */
 function abaCursos(){
   $("aba").innerHTML=`
-    <p class="dica" style="margin-top:0">O <b>link</b> é o da pasta do curso no OneDrive (Compartilhar → "Qualquer pessoa com o link" → "Pode exibir" → Copiar link).</p>
+    <p class="dica" style="margin-top:0">O <b>link</b> é o da pasta do curso no Google Drive (Compartilhar → "Qualquer pessoa com o link" · Leitor → Copiar link).</p>
     <div class="tab-wrap"><table>
       <thead><tr><th>Ordem</th><th>Curso</th><th>Sigla</th><th>Cor</th><th>Link da pasta do curso</th><th>Visível</th><th></th></tr></thead>
       <tbody>${S.cursos.map(c=>`
@@ -339,7 +355,7 @@ function abaCursos(){
           <td style="white-space:nowrap"><button class="btn peq prim bS" hidden>Salvar</button> <button class="btn peq perigo bX">Excluir</button></td>
         </tr>`).join("")}</tbody></table></div>
     <button class="btn" id="novoC" style="margin-top:12px">+ Novo curso</button>
-    <p class="dica">Excluir um curso apaga também as disciplinas dele no portal (as pastas do OneDrive não são afetadas).</p>`;
+    <p class="dica">Excluir um curso apaga também as disciplinas dele no portal (as pastas do Google Drive não são afetadas).</p>`;
   $("novoC").onclick=async()=>{const {data,error}=await sb.from("cursos").insert({nome:"Novo curso",sigla:"NC",ordem:S.cursos.length+1}).select().single();
     if(error){toast(erroMsg(error),true);return;} S.cursos.push(data); abaCursos(); };
   document.querySelectorAll("tbody tr[data-id]").forEach(tr=>{
@@ -364,6 +380,77 @@ function abaCursos(){
 }
 
 
+
+/* ======================= AULAS DA DISCIPLINA (Google Drive) ======================= */
+function pastaId(url){ const m=String(url||"").match(/\/folders\/([\w-]{10,})/) || String(url||"").match(/[?&]id=([\w-]{10,})/); return m?m[1]:null; }
+const TIPOS = {
+  "application/pdf":["PDF","#c0392b"],
+  "application/vnd.google-apps.presentation":["SLD","#e0a800"],
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation":["PPT","#d35400"],
+  "application/vnd.ms-powerpoint":["PPT","#d35400"],
+  "application/vnd.google-apps.document":["DOC","#2d6cb5"],
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document":["DOC","#2d6cb5"],
+  "application/msword":["DOC","#2d6cb5"],
+  "application/vnd.google-apps.spreadsheet":["PLAN","#1b8a6b"],
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet":["PLAN","#1b8a6b"],
+};
+function tipoDe(f){ if(TIPOS[f.mimeType]) return TIPOS[f.mimeType];
+  if(f.mimeType.startsWith("image/")) return ["IMG","#8e44ad"]; if(f.mimeType.startsWith("video/")) return ["VÍDEO","#16a085"];
+  if(f.mimeType.startsWith("audio/")) return ["ÁUDIO","#16a085"]; return ["ARQ","#5d6d7c"]; }
+function linkAbrir(f){ return f.webViewLink || `https://drive.google.com/file/d/${f.id}/view`; }
+function linkBaixar(f){
+  const t=f.mimeType;
+  if(t==="application/vnd.google-apps.presentation") return `https://docs.google.com/presentation/d/${f.id}/export/pdf`;
+  if(t==="application/vnd.google-apps.document") return `https://docs.google.com/document/d/${f.id}/export?format=pdf`;
+  if(t==="application/vnd.google-apps.spreadsheet") return `https://docs.google.com/spreadsheets/d/${f.id}/export?format=xlsx`;
+  if(t.startsWith("application/vnd.google-apps.")) return null;
+  return `https://drive.google.com/uc?export=download&id=${f.id}`;
+}
+function tamanho(b){ b=+b; if(!b) return ""; return b>1048576?(b/1048576).toFixed(1).replace(".",",")+" MB":Math.max(1,Math.round(b/1024))+" KB"; }
+const cacheDrive={};
+async function listarPasta(id){
+  if(cacheDrive[id]) return cacheDrive[id];
+  const q=encodeURIComponent(`'${id}' in parents and trashed=false`);
+  const url=`https://www.googleapis.com/drive/v3/files?q=${q}&orderBy=folder,name_natural&pageSize=500&fields=files(id,name,mimeType,size,modifiedTime,webViewLink,shortcutDetails)&key=${encodeURIComponent(GOOGLE_API_KEY)}`;
+  const r=await fetch(url); if(!r.ok) throw new Error("drive "+r.status);
+  const j=await r.json(); cacheDrive[id]=j.files||[]; return cacheDrive[id];
+}
+function entrarSub(id,nome){ S.pilha.push({id,nome}); renderDisc(); window.scrollTo({top:0}); }
+function voltarSub(n){ S.pilha=S.pilha.slice(0,n); renderDisc(); }
+async function renderDisc(){
+  const d=S.disc.find(x=>x.id===S.discAtual); if(!d) return irHome();
+  const c=cursoDe(d.curso_id)||{cor:"#593493",nome:""};
+  const raiz=pastaId(d.link);
+  const atual=S.pilha.length?S.pilha[S.pilha.length-1].id:raiz;
+  const trilha=S.pilha.length?`<div style="margin-top:8px;font-size:.95rem">📁 <a href="#" style="color:#fff" onclick="voltarSub(0);return false">${esc(d.nome)}</a>${S.pilha.map((p,i)=>` › ${i===S.pilha.length-1?`<b>${esc(p.nome)}</b>`:`<a href="#" style="color:#fff" onclick="voltarSub(${i+1});return false">${esc(p.nome)}</a>`}`).join("")}</div>`:"";
+  $("hero").innerHTML=`<button class="navbtn" onclick="abrirCurso('${c.id}')">← ${esc(c.nome)}</button>
+    <h2 style="margin-top:14px">${esc(d.nome)}</h2><p>${d.professor?`Prof. ${esc(d.professor)}`:""}${d.turma?` · ${esc(d.turma)}`:""}</p>${trilha}
+    <p style="margin-top:8px"><b>📖 Abrir</b> mostra a aula na tela. <b>⬇ Baixar</b> salva no celular ou no computador.</p>`;
+  $("app").innerHTML=`<div class="painel"><div class="carregando">Carregando aulas…</div></div>`;
+  let arquivos;
+  try{ arquivos=await listarPasta(atual); }
+  catch(e){
+    $("app").innerHTML=`<div class="painel"><p>Não consegui carregar a lista de aulas agora.</p>
+      <a class="cta" style="background:${esc(c.cor)}" href="${esc(d.link)}" target="_blank" rel="noopener">📂 Abrir a pasta no Google Drive</a></div>`;
+    return;
+  }
+  if(S.discAtual!==d.id) return;
+  const pastas=arquivos.filter(f=>f.mimeType==="application/vnd.google-apps.folder");
+  const outros=arquivos.filter(f=>f.mimeType!=="application/vnd.google-apps.folder");
+  if(!arquivos.length){ $("app").innerHTML=`<div class="vazio">Ainda não há aulas nesta pasta. Volte mais tarde!</div>`; return; }
+  $("app").innerHTML=`<div class="aulas">
+    ${pastas.map(f=>`<div class="aula pasta" tabindex="0" data-id="${esc(f.id)}" data-n="${esc(f.name)}" onclick="entrarSub(this.dataset.id,this.dataset.n)" onkeydown="if(event.key==='Enter')entrarSub(this.dataset.id,this.dataset.n)">
+      <div class="ic" style="background:#f4b400">📁</div><div class="nm">${esc(f.name)}<small>Pasta · toque para abrir</small></div><span class="cta sec">Abrir pasta →</span></div>`).join("")}
+    ${outros.map(f=>{ const [tx,cor]=tipoDe(f); const dl=linkBaixar(f);
+      return `<div class="aula"><div class="ic" style="background:${cor}">${tx}</div>
+        <div class="nm">${esc(f.name.replace(/\.[a-z0-9]{2,4}$/i,""))}<small>${[tx, tamanho(f.size), f.modifiedTime?"atualizada em "+dataBR(f.modifiedTime):""].filter(Boolean).join(" · ")}</small></div>
+        <div class="bts"><a class="cta" style="background:${esc(c.cor)}" href="${esc(linkAbrir(f))}" target="_blank" rel="noopener">📖 Abrir</a>
+        ${dl?`<a class="cta sec" href="${esc(dl)}" target="_blank" rel="noopener" onclick="avisoDownload()">⬇ Baixar</a>`:""}</div></div>`; }).join("")}
+  </div>`;
+}
+function dataBR(iso){ try{ return new Date(iso).toLocaleDateString("pt-BR"); }catch{ return ""; } }
+function avisoDownload(){ toast(/Android|iPhone|iPad/i.test(navigator.userAgent)?"Baixando… O arquivo vai para a pasta Downloads do celular (app Arquivos).":"Baixando… O arquivo vai para a pasta Downloads do computador."); }
+
 /* ======================= AJUDA PARA O ALUNO ======================= */
 function modal(html){ fecharModal(); const m=document.createElement("div"); m.className="modal"; m.id="modal";
   m.innerHTML=`<div class="caixa" role="dialog" aria-modal="true"><button class="fechar" aria-label="Fechar" onclick="fecharModal()">✕</button>${html}</div>`;
@@ -376,10 +463,10 @@ function ajuda(){
   modal(`<h3>Como usar o Portal de Aulas</h3><p class="dica" style="font-size:1rem">São só 3 toques:</p>
   <div class="passos3">
     <div class="passo3"><span class="n">1</span>${CEL(`<div class="it hl"><span class="sq" style="background:#e06a00"></span>Enfermagem</div><div class="it"><span class="sq" style="background:#593493"></span>Radiologia</div><div class="it"><span class="sq" style="background:#8a5a12"></span>Administração</div>`,"left:70px;top:70px")}<p>Toque no seu <u>curso</u></p></div>
-    <div class="passo3"><span class="n">2</span>${CEL(`<div class="it">Farmacologia<br>📖 Abrir · ⬇ Baixar</div><div class="it hl">Saúde Coletiva<br>📖 Abrir · ⬇ Baixar</div>`,"left:22px;top:118px")}<p>Ache a sua <u>disciplina</u> e toque em <b>Abrir aula</b></p></div>
-    <div class="passo3"><span class="n">3</span>${CEL(`<div class="it">📁 Saúde Coletiva</div><div class="it hl"><span class="sq" style="background:#b42318"></span>Aula 01.pdf</div><div class="it"><span class="sq" style="background:#b42318"></span>Aula 02.pdf</div>`,"left:70px;top:98px")}<p>Toque na <u>aula</u>. Ela abre na tela!</p></div>
+    <div class="passo3"><span class="n">2</span>${CEL(`<div class="it">Farmacologia<br>Prof. Carla</div><div class="it hl">Saúde Coletiva<br>Prof. Rafael</div><div class="it">Anatomia<br>Prof. Carla</div>`,"left:70px;top:112px")}<p>Toque na sua <u>disciplina</u></p></div>
+    <div class="passo3"><span class="n">3</span>${CEL(`<div class="it"><span class="sq" style="background:#c0392b"></span>Aula 01<br>📖 Abrir · ⬇ Baixar</div><div class="it hl"><span class="sq" style="background:#c0392b"></span>Aula 02<br>📖 Abrir · ⬇ Baixar</div>`,"left:26px;top:112px")}<p>Na <u>aula</u>, toque em <b>Abrir</b> para ler ou <b>Baixar</b> para salvar</p></div>
   </div>
-  <div class="dica-box">💡 <b>Não precisa baixar para estudar.</b> Tocando na aula, ela já abre para ler. Use <b>Baixar</b> só se quiser guardar no celular para ver sem internet.</div>
+  <div class="dica-box">💡 <b>Não precisa baixar para estudar.</b> Tocando em <b>Abrir</b>, a aula já aparece na tela. Use <b>Baixar</b> só se quiser guardar no celular para ver sem internet. O arquivo baixado fica no app <b>Arquivos</b>, na pasta <b>Downloads</b>.</div>
   <div class="dica-box" style="background:var(--teal-claro)">📱 <b>Deixe o portal na tela do celular:</b> no Chrome, toque em <b>⋮</b> (três pontinhos) → <b>Adicionar à tela inicial</b>. No iPhone, toque em <b>Compartilhar</b> (quadrado com seta) → <b>Adicionar à Tela de Início</b>.</div>`);
 }
 
@@ -568,6 +655,7 @@ function cartaz(i){
   }
   if(location.hash==="#coordenacao") S.tela="coord";
   await carregar();
+  if(location.hash.startsWith("#d-")){ const d=S.disc.find(x=>x.id===location.hash.slice(3)); if(d){ S.tela="disc"; S.curso=d.curso_id; S.discAtual=d.id; S.pilha=[]; } }
   if(location.hash.startsWith("#c-")){ const id=location.hash.slice(3); if(cursoDe(id)){ S.tela="curso"; S.curso=id; } }
   render();
 })();
