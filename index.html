@@ -115,6 +115,9 @@
   .chip{border:2px solid var(--linha);background:#fff;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:1rem;color:var(--texto)}
   .chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
   .card .turnoTag{font-size:.85rem;padding:3px 10px;border-radius:999px;background:var(--laranja);color:#fff;font-weight:700;display:inline-block}
+  tr.oculta td{background:#f6f5f8}
+  tr.oculta td input:not([type=checkbox]){color:#8a8f98}
+  .vis{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600;white-space:nowrap;cursor:pointer}
   #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--azul);color:#fff;padding:10px 18px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:9;max-width:calc(100% - 32px)}
   #toast.erro{background:var(--erro)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -276,6 +279,13 @@ function abaDiscAviso(){
       <button class="btn prim" id="salvarTodas">💾 Salvar todas</button></div>` : "";
   if(n) $("salvarTodas").onclick=async()=>{ for(const b of [...document.querySelectorAll("tbody tr.mudou .bS")]) { await b.onclick(); } };
 }
+async function visTodas(on){
+  const ids=S.disc.filter(d=>d.curso_id===S.filtroCurso && d.ativo!==on).map(d=>d.id);
+  if(!ids.length){ toast(on?"Todas já estão visíveis.":"Todas já estão ocultas."); return; }
+  const {error}=await sb.from("disciplinas").update({ativo:on,atualizado_em:new Date().toISOString()}).in("id",ids);
+  if(error){ toast(erroMsg(error),true); return; }
+  S.disc.forEach(d=>{ if(ids.includes(d.id)) d.ativo=on; }); toast(on?`${ids.length} disciplina(s) agora visíveis.`:`${ids.length} disciplina(s) ocultas.`); abaDisc();
+}
 function trocaAba(a){ S.aba=a; salvarPref(); renderCoord(); }
 function abaDisc(){
   if(!S.filtroCurso && S.cursos[0]) S.filtroCurso=S.cursos[0].id;
@@ -295,15 +305,19 @@ function abaDisc(){
       </div></form>
     ${datalists()}
     <div id="pendBar"></div>
+    ${lista.length?`<div class="linha-acoes" style="margin-bottom:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <span class="dica"><b>${lista.filter(d=>d.ativo).length}</b> visíveis · <b>${lista.filter(d=>!d.ativo).length}</b> ocultas para os alunos.</span>
+      <button class="btn peq" onclick="visTodas(true)">👁 Mostrar todas deste curso</button>
+      <button class="btn peq" onclick="visTodas(false)">🚫 Ocultar todas deste curso</button></div>`:""}
     <div class="tab-wrap"><table>
       <thead><tr><th>Disciplina</th><th>Professor</th><th>Turno / Turma</th><th>Link da pasta da disciplina</th><th>Visível</th><th></th></tr></thead>
       <tbody>${lista.length?lista.map(d=>`
-        <tr data-id="${d.id}">
+        <tr data-id="${d.id}" class="${d.ativo?"":"oculta"}">
           <td><input class="eN" value="${esc(d.nome)}"></td>
           <td><input class="eP" list="lp" value="${esc(d.professor)}"></td>
           <td><input class="eT" list="lt" value="${esc(d.turma)}"></td>
           <td><input class="eL" type="url" value="${esc(d.link)}" placeholder="cole o link da pasta" style="${urlOk(d.link)?"":"border-color:#e0a82e;background:#fffbea"}">${urlOk(d.link)?"":`<div class="dica" style="color:#8a5a12">⚠ sem link: abre a pasta do curso</div>`}</td>
-          <td style="text-align:center"><input class="eA" type="checkbox" style="width:auto" ${d.ativo?"checked":""}></td>
+          <td style="text-align:center"><label class="vis"><input class="eA" type="checkbox" style="width:auto" ${d.ativo?"checked":""}> <span>${d.ativo?"👁 Visível":"🚫 Oculta"}</span></label></td>
           <td style="white-space:nowrap"><button class="btn peq prim bS" hidden>Salvar</button> <button class="btn peq perigo bX">Excluir</button></td>
         </tr>`).join(""):`<tr><td colspan="6" class="dica" style="padding:20px;text-align:center">Nenhuma disciplina neste curso. Adicione acima.</td></tr>`}
       </tbody></table></div>
@@ -324,10 +338,14 @@ function abaDisc(){
     const id=tr.dataset.id, bS=tr.querySelector(".bS"), bX=tr.querySelector(".bX");
     const guardar=()=>{ const e=LS.get("proz_edicoes",{}); e[id]={n:tr.querySelector(".eN").value,p:tr.querySelector(".eP").value,t:tr.querySelector(".eT").value,l:tr.querySelector(".eL").value,a:tr.querySelector(".eA").checked}; LS.set("proz_edicoes",e); };
     const marcar=()=>{tr.classList.add("mudou");bS.hidden=false;abaDiscAviso();};
-    tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",()=>{marcar();guardar();}));
-    tr.querySelector(".eA").addEventListener("change",()=>{marcar();guardar();});
+    tr.querySelectorAll("input:not(.eA)").forEach(i=>i.addEventListener("input",()=>{marcar();guardar();}));
+    tr.querySelector(".eA").addEventListener("change",async ev=>{
+      const on=ev.target.checked; tr.querySelector(".vis span").textContent=on?"👁 Visível":"🚫 Oculta"; tr.classList.toggle("oculta",!on);
+      const {error}=await sb.from("disciplinas").update({ativo:on,atualizado_em:new Date().toISOString()}).eq("id",id);
+      if(error){ toast(erroMsg(error),true); ev.target.checked=!on; return; }
+      S.disc.find(d=>d.id===id).ativo=on; toast(on?"Disciplina visível para os alunos.":"Disciplina oculta para os alunos."); abaDisc(); });
     const pend=LS.get("proz_edicoes",{})[id];
-    if(pend){ tr.querySelector(".eN").value=pend.n; tr.querySelector(".eP").value=pend.p; tr.querySelector(".eT").value=pend.t; tr.querySelector(".eL").value=pend.l; tr.querySelector(".eA").checked=pend.a; marcar(); }
+    if(pend){ tr.querySelector(".eN").value=pend.n; tr.querySelector(".eP").value=pend.p; tr.querySelector(".eT").value=pend.t; tr.querySelector(".eL").value=pend.l; marcar(); }
     bS.onclick=async()=>{
       const corpo={nome:tr.querySelector(".eN").value.trim(),professor:tr.querySelector(".eP").value.trim()||null,turma:tr.querySelector(".eT").value.trim()||null,
         link:tr.querySelector(".eL").value.trim()||null,ativo:tr.querySelector(".eA").checked,atualizado_em:new Date().toISOString()};
