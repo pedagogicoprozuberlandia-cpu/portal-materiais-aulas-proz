@@ -110,6 +110,11 @@
   .aula .cta{margin-top:0;padding:9px 16px;font-size:1rem}
   .aula.pasta{cursor:pointer}.aula.pasta:hover{border-color:var(--teal)}
   .carregando{padding:30px;text-align:center;color:var(--suave)}
+  .turnos{margin-top:14px;background:#fff;border:1px solid var(--linha);border-radius:var(--raio);padding:14px 16px;box-shadow:0 4px 14px rgba(60,30,110,.07)}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+  .chip{border:2px solid var(--linha);background:#fff;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;font-size:1rem;color:var(--texto)}
+  .chip.on{background:var(--teal);border-color:var(--teal);color:#fff}
+  .card .turnoTag{font-size:.85rem;padding:3px 10px;border-radius:999px;background:var(--laranja);color:#fff;font-weight:700;display:inline-block}
   #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--azul);color:#fff;padding:10px 18px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:9;max-width:calc(100% - 32px)}
   #toast.erro{background:var(--erro)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -140,13 +145,15 @@ const GOOGLE_API_KEY = "AIzaSyCy8eVR-8llTIqv_ZaB3Yn3_cpvOnlz4ns";
 
 const configurado = !SUPABASE_URL.startsWith("COLE_AQUI");
 const sb = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
-const S = { cursos:[], disc:[], tela:"home", curso:null, sessao:null, aba:"disc", filtroCurso:"" };
+let _turnoSalvo=""; try{ _turnoSalvo=localStorage.getItem("proz_turno")||""; }catch{}
+const _pref=(()=>{ try{ return JSON.parse(localStorage.getItem("proz_coord")||"{}"); }catch{ return {}; } })();
+const S = { aba:_pref.aba||"disc", filtroCurso:_pref.curso||"", turno:_turnoSalvo, cursos:[], disc:[], tela:"home", curso:null, sessao:null };
 const $ = id => document.getElementById(id);
 const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const urlOk = u => { try { return new URL(u).protocol==="https:"; } catch { return false; } };
 let tT; function toast(m,e){const t=$("toast");t.textContent=m;t.className=e?"erro":"";t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,3500)}
 function erroMsg(e){const m=e?.message||String(e);if(/Invalid login/i.test(m))return"E-mail ou senha incorretos.";if(/row-level/i.test(m))return"Sem permissão. Entre com o login da coordenação.";return m}
-const ordenar = arr => arr.sort((a,b)=>(a.nome||"").localeCompare(b.nome||"","pt-BR"));
+const ordenar = arr => arr.sort((a,b)=>(a.nome||"").localeCompare(b.nome||"","pt-BR") || (a.turma||"").localeCompare(b.turma||"","pt-BR"));
 
 async function carregar(){
   if(!configurado){ S.cursos=[]; S.disc=[]; return; }
@@ -164,7 +171,12 @@ function setHash(h){ try{ history.replaceState(null,"",h?("#"+h):location.pathna
 function irHome(){ S.tela="home"; S.curso=null; setHash(""); render(); window.scrollTo({top:0}); }
 function abrirCurso(id){ S.tela="curso"; S.curso=id; setHash("c-"+id); render(); window.scrollTo({top:0}); }
 function abrirDisc(id){ const d=S.disc.find(x=>x.id===id); if(!d) return; S.tela="disc"; S.curso=d.curso_id; S.discAtual=id; S.pilha=[]; setHash("d-"+id); render(); window.scrollTo({top:0}); }
-function irCoord(){ S.tela="coord"; render(); window.scrollTo({top:0}); }
+function irCoord(){ S.tela="coord"; setHash("coordenacao"); render(); window.scrollTo({top:0}); }
+const LS={ get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } },
+           set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} },
+           del(k){ try{ localStorage.removeItem(k); }catch{} } };
+function temEdicoesPendentes(){ const e=LS.get("proz_edicoes",{}); return Object.keys(e).length>0; }
+window.addEventListener("beforeunload",e=>{ if(S.tela==="coord" && temEdicoesPendentes()){ e.preventDefault(); e.returnValue=""; } });
 
 function render(){
   $("navCoord").textContent = S.tela==="coord" ? "← Ver portal" : "Coordenação";
@@ -196,15 +208,18 @@ function renderCurso(){
   $("app").innerHTML=`
     <div class="painel" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <div style="flex:1;min-width:200px"><input id="bD" type="search" placeholder="Buscar disciplina ou professor…"></div>
-      ${turmas.length?`<div style="flex:1;min-width:180px"><select id="fT"><option value="">Todas as turmas</option>${turmas.map(t=>`<option>${esc(t)}</option>`).join("")}</select></div>`:""}
+
     </div>
+    ${turmas.length>1?`<div class="turnos"><b>Qual é o seu turno/turma?</b><div class="chips" id="chips">
+      <button class="chip" data-t="">Todos</button>${turmas.map(t=>`<button class="chip" data-t="${esc(t)}">${esc(t)}</button>`).join("")}</div></div>`:""}
     <div class="grade" id="gD" style="margin-top:16px"></div>`;
   const pinta=()=>{
-    const q=($("bD").value||"").toLowerCase(), t=$("fT")?.value||"";
+    const q=($("bD").value||"").toLowerCase(), t=turmas.includes(S.turno)?S.turno:"";
+    document.querySelectorAll("#chips .chip").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
     const f=lista.filter(d=>(!t||d.turma===t)&&(!q||[d.nome,d.professor,d.turma].join(" ").toLowerCase().includes(q)));
     $("gD").innerHTML = f.length ? f.map(d=>{
       const link=urlOk(d.link)?d.link:(urlOk(c.link)?c.link:null);
-      const corpo=`${d.turma?`<div><span class="tag cinza">${esc(d.turma)}</span></div>`:""}<h3>${esc(d.nome)}</h3>
+      const corpo=`${d.turma?`<div><span class="turnoTag">🕘 ${esc(d.turma)}</span></div>`:""}<h3>${esc(d.nome)}</h3>
         <div class="desc">${d.professor?`Prof. ${esc(d.professor)}`:"Professor a definir"}</div>`;
       if(link && GOOGLE_API_KEY && pastaId(link)) return `<div class="card clic" tabindex="0" onclick="abrirDisc('${d.id}')" onkeydown="if(event.key==='Enter')abrirDisc('${d.id}')">${corpo}
           <span class="cta" style="background:${esc(c.cor)}">📚 Ver aulas →</span></div>`;
@@ -214,7 +229,9 @@ function renderCurso(){
                   : `<div class="card off">${corpo}<span class="desc" style="margin-top:auto">Materiais em breve</span></div>`;
     }).join("") : `<div class="vazio">${lista.length?"Nada encontrado.":"Nenhuma disciplina cadastrada neste curso ainda."}</div>`;
   };
-  $("bD").oninput=pinta; if($("fT")) $("fT").onchange=pinta; pinta();
+  $("bD").oninput=pinta;
+  document.querySelectorAll("#chips .chip").forEach(b=>b.onclick=()=>{ S.turno=b.dataset.t; try{localStorage.setItem("proz_turno",S.turno)}catch{} pinta(); });
+  pinta();
 }
 
 /* ======================= COORDENAÇÃO ======================= */
@@ -226,11 +243,11 @@ function renderCoord(){
     <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
       <span class="dica">Conectada como <b>${esc(S.sessao.user.email)}</b></span><button class="btn peq" onclick="sair()">Sair</button></div>
     <div class="abas">
-      <button class="${S.aba==="disc"?"on":""}" onclick="S.aba='disc';renderCoord()">Disciplinas e professores</button>
-      <button class="${S.aba==="troca"?"on":""}" onclick="S.aba='troca';renderCoord()">Trocar professor</button>
-      <button class="${S.aba==="cursos"?"on":""}" onclick="S.aba='cursos';renderCoord()">Cursos e links</button>
-      <button class="${S.aba==="imp"?"on":""}" onclick="S.aba='imp';renderCoord()">📥 Importar planilha</button>
-      <button class="${S.aba==="qr"?"on":""}" onclick="S.aba='qr';renderCoord()">QR Codes e cartazes</button>
+      <button class="${S.aba==="disc"?"on":""}" onclick="trocaAba('disc')">Disciplinas e professores</button>
+      <button class="${S.aba==="troca"?"on":""}" onclick="trocaAba('troca')">Trocar professor</button>
+      <button class="${S.aba==="cursos"?"on":""}" onclick="trocaAba('cursos')">Cursos e links</button>
+      <button class="${S.aba==="imp"?"on":""}" onclick="trocaAba('imp')">📥 Importar planilha</button>
+      <button class="${S.aba==="qr"?"on":""}" onclick="trocaAba('qr')">QR Codes e cartazes</button>
     </div><div id="aba"></div></div>`;
   ({disc:abaDisc,troca:abaTroca,cursos:abaCursos,imp:abaImp,qr:abaQR})[S.aba]();
 }
@@ -250,6 +267,16 @@ function renderLogin(){
 async function sair(){ await sb.auth.signOut(); }
 
 /* --- Disciplinas --- */
+function salvarPref(){ LS.set("proz_coord",{aba:S.aba,curso:S.filtroCurso}); }
+function abaDiscAviso(){
+  const bar=$("pendBar"); if(!bar) return;
+  const n=document.querySelectorAll("tbody tr.mudou").length;
+  bar.innerHTML = n ? `<div class="aviso" style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 12px">
+      <span>✏️ <b>${n} linha${n>1?"s":""}</b> com alteração não salva (fica guardada mesmo se você sair da página).</span>
+      <button class="btn prim" id="salvarTodas">💾 Salvar todas</button></div>` : "";
+  if(n) $("salvarTodas").onclick=async()=>{ for(const b of [...document.querySelectorAll("tbody tr.mudou .bS")]) { await b.onclick(); } };
+}
+function trocaAba(a){ S.aba=a; salvarPref(); renderCoord(); }
 function abaDisc(){
   if(!S.filtroCurso && S.cursos[0]) S.filtroCurso=S.cursos[0].id;
   const c=cursoDe(S.filtroCurso);
@@ -262,13 +289,14 @@ function abaDisc(){
       <div class="form-lin">
         <div><label for="nN">Disciplina *</label><input id="nN" required placeholder="Ex.: Farmacologia"></div>
         <div><label for="nP">Professor</label><input id="nP" list="lp" placeholder="Nome do professor"></div>
-        <div><label for="nT">Turma</label><input id="nT" list="lt" placeholder="Ex.: 2026/2 Noite"></div>
+        <div><label for="nT">Turno / Turma</label><input id="nT" list="lt" placeholder="Ex.: Noite"></div>
         <div><label for="nL">Link da pasta da disciplina</label><input id="nL" type="url" placeholder="cole o link da pasta"></div>
         <button class="btn prim" type="submit">Adicionar</button>
       </div></form>
     ${datalists()}
+    <div id="pendBar"></div>
     <div class="tab-wrap"><table>
-      <thead><tr><th>Disciplina</th><th>Professor</th><th>Turma</th><th>Link da pasta da disciplina</th><th>Visível</th><th></th></tr></thead>
+      <thead><tr><th>Disciplina</th><th>Professor</th><th>Turno / Turma</th><th>Link da pasta da disciplina</th><th>Visível</th><th></th></tr></thead>
       <tbody>${lista.length?lista.map(d=>`
         <tr data-id="${d.id}">
           <td><input class="eN" value="${esc(d.nome)}"></td>
@@ -280,17 +308,26 @@ function abaDisc(){
         </tr>`).join(""):`<tr><td colspan="6" class="dica" style="padding:20px;text-align:center">Nenhuma disciplina neste curso. Adicione acima.</td></tr>`}
       </tbody></table></div>
     <p class="dica">Dica: edite direto na tabela (ex.: troque o professor ou cole o link) e clique em <b>Salvar</b> na linha.<br>Link da pasta: no Google Drive, botão direito na pasta da disciplina → <b>Compartilhar</b> → <b>Copiar link</b> (a pasta precisa estar como "Qualquer pessoa com o link" · Leitor).</p>`;
-  $("selC").onchange=e=>{S.filtroCurso=e.target.value;abaDisc();};
+  $("selC").onchange=e=>{S.filtroCurso=e.target.value;salvarPref();abaDisc();};
+  // ---- rascunho do formulário "Nova disciplina" ----
+  const rasc=LS.get("proz_rascunho_nova",{});
+  if(rasc.curso===S.filtroCurso){ ["nN","nP","nT","nL"].forEach(k=>{ if(rasc[k]) $(k).value=rasc[k]; });
+    if(["nN","nP","nT","nL"].some(k=>rasc[k])) $("fn").insertAdjacentHTML("beforeend",`<div class="dica" style="margin-top:6px">✏️ Rascunho recuperado. Continue de onde parou.</div>`); }
+  ["nN","nP","nT","nL"].forEach(k=>$(k).addEventListener("input",()=>{ const r={curso:S.filtroCurso}; ["nN","nP","nT","nL"].forEach(x=>r[x]=$(x).value); LS.set("proz_rascunho_nova",r); }));
   $("fn").onsubmit=async ev=>{ev.preventDefault();
     const corpo={curso_id:S.filtroCurso,nome:$("nN").value.trim(),professor:$("nP").value.trim()||null,turma:$("nT").value.trim()||null,link:$("nL").value.trim()||null};
     if(corpo.link&&!urlOk(corpo.link)){toast("O link precisa começar com https://",true);return;}
     const {data,error}=await sb.from("disciplinas").insert(corpo).select().single();
     if(error){toast(erroMsg(error),true);return;}
-    S.disc=ordenar([...S.disc,data]); toast("Disciplina adicionada."); abaDisc(); };
+    S.disc=ordenar([...S.disc,data]); LS.del("proz_rascunho_nova"); toast("Disciplina adicionada."); abaDisc(); };
   document.querySelectorAll("tbody tr[data-id]").forEach(tr=>{
     const id=tr.dataset.id, bS=tr.querySelector(".bS"), bX=tr.querySelector(".bX");
-    tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",()=>{tr.classList.add("mudou");bS.hidden=false;}));
-    tr.querySelector(".eA").addEventListener("change",()=>{tr.classList.add("mudou");bS.hidden=false;});
+    const guardar=()=>{ const e=LS.get("proz_edicoes",{}); e[id]={n:tr.querySelector(".eN").value,p:tr.querySelector(".eP").value,t:tr.querySelector(".eT").value,l:tr.querySelector(".eL").value,a:tr.querySelector(".eA").checked}; LS.set("proz_edicoes",e); };
+    const marcar=()=>{tr.classList.add("mudou");bS.hidden=false;abaDiscAviso();};
+    tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",()=>{marcar();guardar();}));
+    tr.querySelector(".eA").addEventListener("change",()=>{marcar();guardar();});
+    const pend=LS.get("proz_edicoes",{})[id];
+    if(pend){ tr.querySelector(".eN").value=pend.n; tr.querySelector(".eP").value=pend.p; tr.querySelector(".eT").value=pend.t; tr.querySelector(".eL").value=pend.l; tr.querySelector(".eA").checked=pend.a; marcar(); }
     bS.onclick=async()=>{
       const corpo={nome:tr.querySelector(".eN").value.trim(),professor:tr.querySelector(".eP").value.trim()||null,turma:tr.querySelector(".eT").value.trim()||null,
         link:tr.querySelector(".eL").value.trim()||null,ativo:tr.querySelector(".eA").checked,atualizado_em:new Date().toISOString()};
@@ -299,12 +336,13 @@ function abaDisc(){
       bS.disabled=true;
       const {error}=await sb.from("disciplinas").update(corpo).eq("id",id);
       bS.disabled=false; if(error){toast(erroMsg(error),true);return;}
-      Object.assign(S.disc.find(d=>d.id===id),corpo); tr.classList.remove("mudou"); bS.hidden=true; toast("Salvo.");
+      Object.assign(S.disc.find(d=>d.id===id),corpo); tr.classList.remove("mudou"); bS.hidden=true; { const e=LS.get("proz_edicoes",{}); delete e[id]; LS.set("proz_edicoes",e); } toast("Salvo."); abaDiscAviso();
     };
     bX.onclick=async()=>{
       if(!bX.classList.contains("conf")){bX.classList.add("conf");bX.textContent="Confirmar";setTimeout(()=>{bX.classList.remove("conf");bX.textContent="Excluir"},4000);return;}
       const {error}=await sb.from("disciplinas").delete().eq("id",id);
       if(error){toast(erroMsg(error),true);return;}
+      { const e=LS.get("proz_edicoes",{}); delete e[id]; LS.set("proz_edicoes",e); }
       S.disc=S.disc.filter(d=>d.id!==id); toast("Disciplina removida do portal (a pasta no Google Drive continua)."); abaDisc();
     };
   });
@@ -496,11 +534,11 @@ function guiaBaixar(link, nome){
 
 
 /* ======================= IMPORTAR PLANILHA ======================= */
-const COLS = ["Curso","Disciplina","Professor","Turma","Link da pasta"];
+const COLS = ["Curso","Disciplina","Professor","Turno","Link da pasta"];
 const semAcento = t => String(t??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
 function chaveCol(h){ const k=semAcento(h);
   if(k.startsWith("curso")) return "curso"; if(k.startsWith("disciplina")) return "nome";
-  if(k.startsWith("prof")) return "professor"; if(k.startsWith("turma")) return "turma";
+  if(k.startsWith("prof")) return "professor"; if(k.startsWith("turma")||k.startsWith("turno")) return "turma";
   if(k.startsWith("link")||k.includes("pasta")||k.startsWith("url")) return "link"; return null; }
 function acharCurso(txt){ const k=semAcento(txt); if(!k) return null;
   return S.cursos.find(c=>semAcento(c.nome)===k) || S.cursos.find(c=>semAcento(c.sigla)===k) || S.cursos.find(c=>semAcento(c.nome).includes(k)) || null; }
@@ -508,8 +546,9 @@ function acharCurso(txt){ const k=semAcento(txt); if(!k) return null;
 function baixarModelo(){
   const linhas=[COLS];
   const exemplo=S.cursos.length?S.cursos:[{nome:"Técnico em Enfermagem"}];
-  linhas.push([exemplo[0].nome,"Farmacologia","Carla Mendes","2026/2 Noite","https://...sharepoint.com/:f:/..."]);
-  linhas.push([exemplo[0].nome,"Saúde Coletiva","Rafael Dias","2026/1 Manhã",""]);
+  linhas.push([exemplo[0].nome,"Farmacologia","Carla Mendes","Manhã","https://drive.google.com/drive/folders/..."]);
+  linhas.push([exemplo[0].nome,"Farmacologia","Rafael Dias","Noite","https://drive.google.com/drive/folders/..."]);
+  linhas.push([exemplo[0].nome,"Saúde Coletiva","Rafael Dias","Noite",""]);
   const ws=XLSX.utils.aoa_to_sheet(linhas); ws["!cols"]=[{wch:38},{wch:32},{wch:24},{wch:16},{wch:60}];
   const cursos=XLSX.utils.aoa_to_sheet([["Cursos cadastrados (copie o nome exato)"],...S.cursos.map(c=>[c.nome])]); cursos["!cols"]=[{wch:45}];
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Disciplinas"); XLSX.utils.book_append_sheet(wb,cursos,"Cursos");
@@ -521,8 +560,8 @@ function abaImp(){
   $("aba").innerHTML=`
     <p style="margin-top:0">Cadastre ou atualize várias disciplinas de uma vez com uma planilha do Excel (.xlsx) ou .csv com estas colunas:</p>
     <div class="tab-wrap"><table style="min-width:0;margin-bottom:10px"><thead><tr>${COLS.map(c=>`<th>${c}</th>`).join("")}</tr></thead>
-      <tbody><tr><td>Técnico em Enfermagem</td><td>Farmacologia</td><td>Carla Mendes</td><td>2026/2 Noite</td><td class="dica">https://…sharepoint.com/…</td></tr></tbody></table></div>
-    <p class="dica">Curso e Disciplina são obrigatórios. No Curso, pode usar o nome ou a sigla (ENF, RAD…). Se a disciplina já existir no curso, ela é <b>atualizada</b>. Células vazias não apagam o que já está cadastrado.</p>
+      <tbody><tr><td>Técnico em Enfermagem</td><td>Farmacologia</td><td>Carla Mendes</td><td>Manhã</td><td class="dica">https://drive.google.com/drive/folders/…</td></tr><tr><td>Técnico em Enfermagem</td><td>Farmacologia</td><td>Rafael Dias</td><td>Noite</td><td class="dica">https://drive.google.com/drive/folders/…</td></tr></tbody></table></div>
+    <p class="dica">Curso e Disciplina são obrigatórios. No Curso, pode usar o nome ou a sigla (ENF, RAD…). A mesma disciplina pode aparecer em várias linhas, uma por <b>turno</b>, cada uma com seu professor e sua pasta. Se a combinação curso + disciplina + turno já existir, ela é <b>atualizada</b>. Células vazias não apagam o que já está cadastrado.</p>
     <div class="linha-acoes" style="margin:12px 0"><button class="btn" onclick="baixarModelo()">⬇ Baixar planilha modelo</button></div>
     <label class="drop" id="drop" for="arq"><div style="font-size:2rem">📄</div><b>Clique para escolher a planilha</b><br><span class="dica">ou arraste o arquivo para cá</span>
       <input id="arq" type="file" accept=".xlsx,.xls,.csv" hidden></label>
@@ -557,12 +596,12 @@ function analisar(linhas, nomeArq){
     if(!c){ r.status="err"; r.msg=`Curso "${o.curso}" não cadastrado`; return r; }
     if(!o.nome){ r.status="err"; r.msg="Falta a disciplina"; return r; }
     if(o.link && !urlOk(o.link)){ r.status="err"; r.msg="Link inválido (precisa começar com https://)"; return r; }
-    const chave=c.id+"|"+semAcento(o.nome);
+    const chave=c.id+"|"+semAcento(o.nome)+"|"+semAcento(o.turma);
     if(vistos.has(chave)){ r.status="err"; r.msg="Repetida na planilha"; return r; } vistos.add(chave);
     r.curso_id=c.id; r.cursoNome=c.nome;
-    const ex=S.disc.find(d=>d.curso_id===c.id && semAcento(d.nome)===semAcento(o.nome));
+    const ex=S.disc.find(d=>d.curso_id===c.id && semAcento(d.nome)===semAcento(o.nome) && semAcento(d.turma)===semAcento(o.turma));
     if(ex){ r.existente=ex;
-      const muda=["professor","turma","link"].some(k=>o[k] && o[k]!==(ex[k]||""));
+      const muda=["professor","link"].some(k=>o[k] && o[k]!==(ex[k]||""));
       r.status=muda?"atu":"igual"; r.msg=muda?"Atualizar":"Sem mudanças"; }
     else { r.status="nova"; r.msg="Nova"; }
     return r;
@@ -575,7 +614,7 @@ function analisar(linhas, nomeArq){
       <span class="st nova">${n("nova")} novas</span> <span class="st atu">${n("atu")} para atualizar</span>
       <span class="st igual">${n("igual")} sem mudanças</span> <span class="st err">${n("err")} com erro</span>
       <div class="tab-wrap" style="margin-top:12px;max-height:420px;overflow:auto"><table>
-        <thead><tr><th>Linha</th><th>Situação</th><th>Curso</th><th>Disciplina</th><th>Professor</th><th>Turma</th><th>Link</th></tr></thead>
+        <thead><tr><th>Linha</th><th>Situação</th><th>Curso</th><th>Disciplina</th><th>Professor</th><th>Turno</th><th>Link</th></tr></thead>
         <tbody>${S._imp.map(r=>`<tr><td class="dica">${r._linha}</td><td><span class="st ${r.status}">${esc(r.status==="err"?r.msg:rot[r.status])}</span></td>
           <td>${esc(r.cursoNome||r.curso)}</td><td><b>${esc(r.nome)}</b></td><td>${esc(r.professor)}</td><td>${esc(r.turma)}</td>
           <td class="dica" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.link?"✓ "+esc(r.link):"—"}</td></tr>`).join("")}</tbody></table></div>
@@ -597,7 +636,7 @@ async function importar(){
     if(error){ toast("Erro ao importar: "+erroMsg(error),true); b.disabled=false; b.textContent="Tentar de novo"; return; }
     S.disc=ordenar([...S.disc,...data]); ok+=data.length; }
   for(const r of atus){
-    const corpo={atualizado_em:agora}; ["professor","turma","link"].forEach(k=>{ if(r[k]) corpo[k]=r[k]; });
+    const corpo={atualizado_em:agora}; ["professor","link"].forEach(k=>{ if(r[k]) corpo[k]=r[k]; });
     const {error}=await sb.from("disciplinas").update(corpo).eq("id",r.existente.id);
     if(error) falhas++; else { Object.assign(r.existente,corpo); ok++; }
   }
@@ -650,7 +689,11 @@ function cartaz(i){
 (async()=>{
   if(configurado){
     const {data}=await sb.auth.getSession(); S.sessao=data.session;
-    sb.auth.onAuthStateChange((ev,sess)=>{ S.sessao=sess; setTimeout(()=>{ if(S.tela==="coord") renderCoord(); },0); });
+    sb.auth.onAuthStateChange((ev,sess)=>{
+      const tinha=!!S.sessao; S.sessao=sess;
+      // só redesenha quando entra ou sai; ignora renovações automáticas (ao voltar para a aba)
+      if((ev==="SIGNED_IN" && !tinha) || ev==="SIGNED_OUT") setTimeout(()=>{ if(S.tela==="coord") renderCoord(); },0);
+    });
   }
   if(location.hash==="#coordenacao") S.tela="coord";
   await carregar();
