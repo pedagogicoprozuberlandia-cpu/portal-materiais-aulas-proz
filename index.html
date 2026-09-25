@@ -118,6 +118,8 @@
   tr.oculta td{background:#f6f5f8}
   tr.oculta td input:not([type=checkbox]){color:#8a8f98}
   .vis{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;font-weight:600;white-space:nowrap;cursor:pointer}
+  .aula.oc{background:#f6f5f8}.aula.oc .nm{color:#8a8f98}
+  .caixa .aula{box-shadow:none;padding:8px 10px}.caixa .aula .ic{width:34px;height:34px}
   #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--azul);color:#fff;padding:10px 18px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:9;max-width:calc(100% - 32px)}
   #toast.erro{background:var(--erro)}
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -492,7 +494,7 @@ async function renderDisc(){
   if(S.discAtual!==d.id) return;
   const pastas=arquivos.filter(f=>f.mimeType==="application/vnd.google-apps.folder");
   const outros=arquivos.filter(f=>f.mimeType!=="application/vnd.google-apps.folder");
-  if(!arquivos.length){ $("app").innerHTML=`<div class="vazio">Ainda não há aulas nesta pasta. Volte mais tarde!</div>`; return; }
+  if(!arquivos.length){ $("app").innerHTML=`<div class="vazio">Ainda não há aulas disponíveis aqui. Volte mais tarde!</div>`; return; }
   $("app").innerHTML=`<div class="aulas">
     ${pastas.map(f=>`<div class="aula pasta" tabindex="0" data-id="${esc(f.id)}" data-n="${esc(f.name)}" onclick="entrarSub(this.dataset.id,this.dataset.n)" onkeydown="if(event.key==='Enter')entrarSub(this.dataset.id,this.dataset.n)">
       <div class="ic" style="background:#f4b400">📁</div><div class="nm">${esc(f.name)}<small>Pasta · toque para abrir</small></div><span class="cta sec">Abrir pasta →</span></div>`).join("")}
@@ -505,6 +507,7 @@ async function renderDisc(){
 }
 function dataBR(iso){ try{ return new Date(iso).toLocaleDateString("pt-BR"); }catch{ return ""; } }
 function avisoDownload(){ toast(/Android|iPhone|iPad/i.test(navigator.userAgent)?"Baixando… O arquivo vai para a pasta Downloads do celular (app Arquivos).":"Baixando… O arquivo vai para a pasta Downloads do computador."); }
+
 
 /* ======================= AJUDA PARA O ALUNO ======================= */
 function modal(html){ fecharModal(); const m=document.createElement("div"); m.className="modal"; m.id="modal";
