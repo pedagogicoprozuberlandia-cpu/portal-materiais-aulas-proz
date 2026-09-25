@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Portal de Aulas PROZ</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bitter:wght@600;700&family=Source+Sans+3:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+  :root{--azul:#593493;--teal:#593493;--teal-claro:#efe8f8;--laranja:#ff7f00;--laranja-esc:#e06a00;--fundo:#f3f6f8;--linha:#dbe3ea;--texto:#1c2833;--suave:#5d6d7c;--erro:#b42318;--alerta-bg:#fdf3e1;--raio:12px}
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{margin:0;background:var(--fundo);color:var(--texto);font:16px/1.55 "Source Sans 3",system-ui,sans-serif}
+  h1,h2,h3{font-family:Bitter,Georgia,serif;line-height:1.25;margin:0;text-wrap:balance}
+  button,input,select{font:inherit}
+  .wrap{max-width:1050px;margin:0 auto;padding-inline:16px}
+  .topo-grad{background:linear-gradient(115deg,#4a2a80 0%,#593493 38%,#8a3f86 68%,#d8622a 90%,#ff7f00 100%);color:#fff}
+  header{background:transparent;color:#fff}
+  header .wrap{display:flex;align-items:center;gap:14px;padding-block:16px;flex-wrap:wrap}
+  .marca{display:flex;align-items:center;gap:12px;cursor:pointer;flex:1}
+  .logo{width:44px;height:44px;border-radius:10px;background:var(--teal);display:grid;place-items:center;flex:none}
+  header h1{font-size:1.3rem}header small{display:block;opacity:.75;font-size:.88rem}
+  .navbtn{background:transparent;border:1px solid rgba(255,255,255,.35);color:#fff;padding:6px 14px;border-radius:999px;cursor:pointer;font-size:.9rem}
+  .hero{background:transparent;color:#fff;padding-block:4px 60px}
+  .hero h2,.hero p{text-shadow:0 1px 2px rgba(40,15,70,.35)}
+  .hero h2{font-size:clamp(1.4rem,4vw,2rem)}.hero p{opacity:.85;margin:6px 0 0;max-width:62ch}
+  main{padding-block:0 50px}
+  .sobe{margin-top:-44px}
+  .grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:16px}
+  .card{background:#fff;border:1px solid var(--linha);border-radius:var(--raio);padding:18px;display:flex;flex-direction:column;gap:9px;text-decoration:none;color:inherit;box-shadow:0 4px 14px rgba(60,30,110,.07);transition:border-color .15s,transform .15s}
+  .card.clic{cursor:pointer}.card.clic:hover,a.card:hover{border-color:var(--teal);transform:translateY(-2px)}
+  .sig{width:50px;height:50px;border-radius:12px;display:grid;place-items:center;color:#fff;font-weight:700}
+  .card h3{font-size:1.1rem}.desc{color:var(--suave);font-size:.92rem}
+  .cta{margin-top:auto;display:inline-flex;align-items:center;gap:6px;background:var(--teal);color:#fff;border-radius:8px;padding:8px 14px;font-weight:700;align-self:flex-start;text-decoration:none;font-size:.95rem}
+  .tag{font-size:.78rem;padding:2px 9px;border-radius:999px;background:var(--teal-claro);color:#45237a;font-weight:600;display:inline-block}
+  .tag.cinza{background:#eef1f4;color:var(--suave)}
+  .off{opacity:.65;box-shadow:none}
+  .painel{background:#fff;border:1px solid var(--linha);border-radius:var(--raio);padding:18px;box-shadow:0 4px 14px rgba(60,30,110,.07)}
+  .barra{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:18px 0 14px}
+  .barra select,.barra input{flex:1;min-width:180px}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--linha);border-radius:8px;background:#fff;color:var(--texto)}
+  input:focus,select:focus,button:focus-visible,a:focus-visible{outline:2px solid var(--teal);outline-offset:1px}
+  label{display:block;font-weight:600;font-size:.88rem;margin-bottom:3px}
+  .btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--linha);background:#fff;color:var(--texto);padding:7px 13px;border-radius:8px;cursor:pointer;font-weight:600;text-decoration:none;white-space:nowrap}
+  .btn:hover{border-color:var(--teal)}.btn.prim{background:var(--teal);border-color:var(--teal);color:#fff}.btn.prim:hover{background:#45237a}
+  .btn.perigo{color:var(--erro)}.btn.perigo.conf{background:var(--erro);color:#fff;border-color:var(--erro)}
+  .btn.peq{padding:5px 10px;font-size:.87rem}.btn:disabled{opacity:.6;cursor:wait}
+  .vazio{text-align:center;color:var(--suave);padding:34px 16px;border:1px dashed var(--linha);border-radius:var(--raio);background:#fff;grid-column:1/-1}
+  .aviso{background:var(--alerta-bg);border:1px solid #f0d49b;color:#6b4a10;padding:12px 16px;border-radius:10px;margin:16px 0}
+  .dica{color:var(--suave);font-size:.86rem;font-weight:400}
+  /* tabela coordenação */
+  .tab-wrap{overflow-x:auto}
+  table{width:100%;border-collapse:collapse;min-width:760px}
+  th{text-align:left;font-size:.8rem;text-transform:uppercase;letter-spacing:.04em;color:var(--suave);padding:8px 6px;border-bottom:2px solid var(--linha)}
+  td{padding:6px;border-bottom:1px solid var(--linha);vertical-align:middle}
+  td input{padding:6px 8px}
+  tr.mudou td{background:#fffbea}
+  .abas{display:flex;gap:6px;border-bottom:1px solid var(--linha);margin-bottom:16px;flex-wrap:wrap}
+  .abas button{background:none;border:0;border-bottom:3px solid transparent;padding:10px 12px;cursor:pointer;color:var(--suave);font-weight:600}
+  .abas button.on{color:var(--azul);border-bottom-color:var(--teal)}
+  .form-lin{display:grid;grid-template-columns:2fr 1.4fr 1fr 2fr auto;gap:8px;align-items:end}
+  @media (max-width:760px){.form-lin{grid-template-columns:1fr 1fr}}
+  .troca{display:grid;grid-template-columns:1fr 1fr auto;gap:8px;align-items:end}
+  @media (max-width:600px){.troca{grid-template-columns:1fr}}
+  .cor{width:44px;padding:2px;height:36px}
+  .auth{max-width:400px;margin:30px auto}
+  .acoes{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap}
+  .acoes .cta{margin-top:0}
+  .cta.sec{background:#fff!important;color:var(--texto);border:2px solid var(--linha);cursor:pointer;font-family:inherit;font-size:.95rem}
+  .ajudaBtn{background:var(--laranja);color:#fff;box-shadow:0 3px 0 #b85600;border:0;border-radius:999px;padding:8px 16px;font-weight:700;cursor:pointer;margin-top:14px;font-size:1rem}
+  .modal{position:fixed;inset:0;background:rgba(10,25,40,.6);display:flex;align-items:flex-start;justify-content:center;padding:24px 16px;z-index:20;overflow-y:auto}
+  .caixa{background:#fff;border-radius:14px;max-width:760px;width:100%;padding:22px;position:relative}
+  .caixa h3{font-size:1.3rem;margin-bottom:6px;padding-right:40px}
+  .fechar{position:absolute;right:14px;top:12px;border:0;background:#eef1f4;border-radius:50%;width:36px;height:36px;font-size:1.2rem;cursor:pointer}
+  .passos3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
+  @media (max-width:640px){.passos3{grid-template-columns:1fr}}
+  .passo3{text-align:center}
+  .passo3 .n{display:inline-grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--teal);color:#fff;font-weight:700;font-size:1.1rem;margin-bottom:6px}
+  .passo3 p{margin:8px 0 0;font-weight:600;font-size:1.05rem}
+  .cel{width:150px;height:250px;margin:0 auto;border:7px solid #1c2833;border-radius:22px;background:#f3f6f8;overflow:hidden;position:relative;text-align:left}
+  .cel .tp{background:var(--azul);height:34px;color:#fff;font-size:10px;font-weight:700;padding:10px 8px}
+  .cel .it{background:#fff;margin:6px;border-radius:6px;padding:7px;font-size:10px;font-weight:600;border:1px solid var(--linha);display:flex;gap:5px;align-items:center}
+  .cel .it.hl{border:2px solid var(--teal);background:var(--teal-claro)}
+  .cel .sq{width:14px;height:14px;border-radius:3px;flex:none}
+  .cel .dedo{position:absolute;font-size:34px;filter:drop-shadow(0 2px 3px rgba(0,0,0,.3))}
+  .guia-abas{display:flex;gap:8px;margin:12px 0}
+  .guia-abas button{flex:1;padding:10px;border-radius:10px;border:2px solid var(--linha);background:#fff;font-weight:700;cursor:pointer}
+  .guia-abas button.on{border-color:var(--teal);background:var(--teal-claro);color:#45237a}
+  .lista-guia{font-size:1.08rem;line-height:1.7;padding-left:22px}
+  .lista-guia b{color:#45237a}
+  .dica-box{background:var(--alerta-bg);border-radius:10px;padding:10px 14px;margin-top:10px}
+  .qr-grade{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px}
+  .qr-card{border:1px solid var(--linha);border-radius:12px;padding:14px;text-align:center;display:flex;flex-direction:column;gap:8px;align-items:center}
+  .qr-card .qr{width:150px;height:150px}
+  .qr-card .qr img,.qr-card .qr canvas{width:150px!important;height:150px!important}
+  .drop{border:2px dashed #b9a6d9;border-radius:12px;padding:26px;text-align:center;background:#faf7fe;cursor:pointer}
+  .drop.over{background:var(--teal-claro);border-color:var(--teal)}
+  .st{font-size:.78rem;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .st.nova{background:#e5f5ec;color:#1e7d4f}.st.atu{background:#e8effa;color:#2d5fa0}.st.err{background:#fde8e6;color:#b42318}.st.igual{background:#eef1f4;color:#5d6d7c}
+  #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--azul);color:#fff;padding:10px 18px;border-radius:8px;box-shadow:0 6px 20px rgba(0,0,0,.2);z-index:9;max-width:calc(100% - 32px)}
+  #toast.erro{background:var(--erro)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<div class="topo-grad">
+<header><div class="wrap">
+  <div class="marca" onclick="irHome()">
+    <img src="data:image/png;base64,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" alt="PROZ" style="height:42px;width:auto;display:block">
+    <div style="border-left:2px solid rgba(255,255,255,.3);padding-left:14px"><h1>Portal de Aulas</h1><small>PROZ Educação · Uberlândia</small></div>
+  </div>
+  <button class="navbtn" id="navCoord" onclick="irCoord()">Coordenação</button>
+</div></header>
+<div class="hero"><div class="wrap" id="hero"></div></div>
+</div>
+<main class="wrap"><div class="sobe" id="app"></div></main>
+<div id="toast" hidden></div>
+
+<script>
+/* ============ CONFIGURAÇÃO (Supabase > Project Settings > API) ============ */
+const SUPABASE_URL = "https://qipchmwlsyzrbszsxwdo.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFpcGNobXdsc3l6cmJzenN4d2RvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTAzNTU1MTQsImV4cCI6MjEwNTkzMTUxNH0.CT8mHhpTW0RGT9EFTWVduyU7nH1u8Lb2YBAJJmxkMlE";
+/* ========================================================================== */
+
+const configurado = !SUPABASE_URL.startsWith("COLE_AQUI");
+const sb = configurado ? supabase.createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+const S = { cursos:[], disc:[], tela:"home", curso:null, sessao:null, aba:"disc", filtroCurso:"" };
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const urlOk = u => { try { return new URL(u).protocol==="https:"; } catch { return false; } };
+let tT; function toast(m,e){const t=$("toast");t.textContent=m;t.className=e?"erro":"";t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,3500)}
+function erroMsg(e){const m=e?.message||String(e);if(/Invalid login/i.test(m))return"E-mail ou senha incorretos.";if(/row-level/i.test(m))return"Sem permissão. Entre com o login da coordenação.";return m}
+const ordenar = arr => arr.sort((a,b)=>(a.nome||"").localeCompare(b.nome||"","pt-BR"));
+
+async function carregar(){
+  if(!configurado){ S.cursos=[]; S.disc=[]; return; }
+  const [c,d] = await Promise.all([
+    sb.from("cursos").select("*").order("ordem").order("nome"),
+    sb.from("disciplinas").select("*")
+  ]);
+  if(c.error||d.error){ toast("Não consegui carregar os dados.",true); return; }
+  S.cursos=c.data; S.disc=ordenar(d.data);
+}
+const cursoDe = id => S.cursos.find(c=>c.id===id);
+
+/* ======================= ALUNO ======================= */
+function setHash(h){ try{ history.replaceState(null,"",h?("#"+h):location.pathname+location.search); }catch{} }
+function irHome(){ S.tela="home"; S.curso=null; setHash(""); render(); window.scrollTo({top:0}); }
+function abrirCurso(id){ S.tela="curso"; S.curso=id; setHash("c-"+id); render(); window.scrollTo({top:0}); }
+function irCoord(){ S.tela="coord"; render(); window.scrollTo({top:0}); }
+
+function render(){
+  $("navCoord").textContent = S.tela==="coord" ? "← Ver portal" : "Coordenação";
+  $("navCoord").onclick = S.tela==="coord" ? irHome : irCoord;
+  if(S.tela==="coord") return renderCoord();
+  if(S.tela==="curso") return renderCurso();
+  renderHome();
+}
+
+function renderHome(){
+  $("hero").innerHTML=`<h2>Materiais de aula</h2><p>Escolha o seu curso para ver as disciplinas, os professores e as aulas.</p><button class="ajudaBtn" onclick="ajuda()">❓ Precisa de ajuda? Veja como usar</button>`;
+  if(!configurado){ $("app").innerHTML=`<div class="painel"><b>Falta conectar o Supabase.</b> Cole a URL e a chave no início do código.</div>`; return; }
+  const cursos=S.cursos.filter(c=>c.ativo);
+  $("app").innerHTML = `<div class="grade">${cursos.map(c=>{
+    const n=S.disc.filter(d=>d.curso_id===c.id&&d.ativo).length;
+    return `<div class="card clic" tabindex="0" onclick="abrirCurso('${c.id}')" onkeydown="if(event.key==='Enter')abrirCurso('${c.id}')">
+      <div class="sig" style="background:${esc(c.cor)}">${esc(c.sigla)}</div>
+      <h3>${esc(c.nome)}</h3>
+      <div><span class="tag${n?"":" cinza"}">${n} disciplina${n===1?"":"s"}</span></div>
+      <span class="cta" style="background:${esc(c.cor)}">Ver disciplinas →</span></div>`;}).join("") || `<div class="vazio">Nenhum curso cadastrado.</div>`}</div>`;
+}
+
+function renderCurso(){
+  const c=cursoDe(S.curso); if(!c) return irHome();
+  const lista=S.disc.filter(d=>d.curso_id===c.id&&d.ativo);
+  const turmas=[...new Set(lista.map(d=>d.turma).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  $("hero").innerHTML=`<button class="navbtn" onclick="irHome()">← Todos os cursos</button><h2 style="margin-top:14px">${esc(c.nome)}</h2><p>Toque em <b>Abrir aula</b> para ler no celular, ou em <b>Baixar</b> para guardar o arquivo. Não precisa de login.</p><button class="ajudaBtn" onclick="ajuda()">❓ Precisa de ajuda?</button>`;
+  $("app").innerHTML=`
+    <div class="painel" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
+      <div style="flex:1;min-width:200px"><input id="bD" type="search" placeholder="Buscar disciplina ou professor…"></div>
+      ${turmas.length?`<div style="flex:1;min-width:180px"><select id="fT"><option value="">Todas as turmas</option>${turmas.map(t=>`<option>${esc(t)}</option>`).join("")}</select></div>`:""}
+      ${urlOk(c.link)?`<a class="btn" href="${esc(c.link)}" target="_blank" rel="noopener">📁 Pasta completa do curso ↗</a>`:""}
+    </div>
+    <div class="grade" id="gD" style="margin-top:16px"></div>`;
+  const pinta=()=>{
+    const q=($("bD").value||"").toLowerCase(), t=$("fT")?.value||"";
+    const f=lista.filter(d=>(!t||d.turma===t)&&(!q||[d.nome,d.professor,d.turma].join(" ").toLowerCase().includes(q)));
+    $("gD").innerHTML = f.length ? f.map(d=>{
+      const link=urlOk(d.link)?d.link:(urlOk(c.link)?c.link:null);
+      const corpo=`${d.turma?`<div><span class="tag cinza">${esc(d.turma)}</span></div>`:""}<h3>${esc(d.nome)}</h3>
+        <div class="desc">${d.professor?`Prof. ${esc(d.professor)}`:"Professor a definir"}</div>`;
+      return link ? `<div class="card">${corpo}<div class="acoes">
+          <a class="cta" style="background:${esc(c.cor)}" href="${esc(link)}" target="_blank" rel="noopener">📖 Abrir aula</a>
+          <button class="cta sec" data-l="${esc(link)}" data-n="${esc(d.nome)}" onclick="guiaBaixar(this.dataset.l,this.dataset.n)">⬇ Baixar</button></div></div>`
+                  : `<div class="card off">${corpo}<span class="desc" style="margin-top:auto">Materiais em breve</span></div>`;
+    }).join("") : `<div class="vazio">${lista.length?"Nada encontrado.":"Nenhuma disciplina cadastrada neste curso ainda."}</div>`;
+  };
+  $("bD").oninput=pinta; if($("fT")) $("fT").onchange=pinta; pinta();
+}
+
+/* ======================= COORDENAÇÃO ======================= */
+function renderCoord(){
+  $("hero").innerHTML=`<h2>Área da coordenação</h2><p>Cadastre cursos e disciplinas, e troque professor ou turma quando precisar. As mudanças aparecem na hora para os alunos.</p>`;
+  if(!configurado){ $("app").innerHTML=`<div class="painel">Conecte o Supabase primeiro.</div>`; return; }
+  if(!S.sessao) return renderLogin();
+  $("app").innerHTML=`<div class="painel">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:6px">
+      <span class="dica">Conectada como <b>${esc(S.sessao.user.email)}</b></span><button class="btn peq" onclick="sair()">Sair</button></div>
+    <div class="abas">
+      <button class="${S.aba==="disc"?"on":""}" onclick="S.aba='disc';renderCoord()">Disciplinas e professores</button>
+      <button class="${S.aba==="troca"?"on":""}" onclick="S.aba='troca';renderCoord()">Trocar professor</button>
+      <button class="${S.aba==="cursos"?"on":""}" onclick="S.aba='cursos';renderCoord()">Cursos e links</button>
+      <button class="${S.aba==="imp"?"on":""}" onclick="S.aba='imp';renderCoord()">📥 Importar planilha</button>
+      <button class="${S.aba==="qr"?"on":""}" onclick="S.aba='qr';renderCoord()">QR Codes e cartazes</button>
+    </div><div id="aba"></div></div>`;
+  ({disc:abaDisc,troca:abaTroca,cursos:abaCursos,imp:abaImp,qr:abaQR})[S.aba]();
+}
+
+function renderLogin(){
+  $("app").innerHTML=`<div class="painel auth"><h3 style="margin-bottom:12px">Entrar</h3>
+    <form id="fl" style="display:grid;gap:12px">
+      <div><label for="le">E-mail</label><input id="le" type="email" required autocomplete="email"></div>
+      <div><label for="ls">Senha</label><input id="ls" type="password" required autocomplete="current-password"></div>
+      <button class="btn prim" type="submit">Entrar</button>
+      <span class="dica">Acesso só para a coordenação. As contas são criadas no painel do Supabase.</span>
+    </form></div>`;
+  $("fl").onsubmit=async ev=>{ev.preventDefault();const b=ev.submitter;b.disabled=true;
+    const {error}=await sb.auth.signInWithPassword({email:$("le").value.trim(),password:$("ls").value});
+    b.disabled=false; if(error) toast(erroMsg(error),true); };
+}
+async function sair(){ await sb.auth.signOut(); }
+
+/* --- Disciplinas --- */
+function abaDisc(){
+  if(!S.filtroCurso && S.cursos[0]) S.filtroCurso=S.cursos[0].id;
+  const c=cursoDe(S.filtroCurso);
+  const lista=S.disc.filter(d=>d.curso_id===S.filtroCurso);
+  $("aba").innerHTML=`
+    ${(()=>{const sem=lista.filter(d=>!urlOk(d.link)).length;return sem?`<div class="aviso">⚠ <b>${sem} disciplina${sem>1?"s":""}</b> deste curso ainda sem link da pasta. Os alunos vão cair na pasta do curso inteiro até você colar o link.</div>`:(lista.length?`<div class="aviso" style="background:var(--teal-claro);border-color:#d9c9f0;color:#45237a">✓ Todas as disciplinas deste curso têm link da pasta.</div>`:"")})()}
+    <div class="barra"><select id="selC">${S.cursos.map(x=>`<option value="${x.id}" ${x.id===S.filtroCurso?"selected":""}>${esc(x.nome)}</option>`).join("")}</select></div>
+    <form id="fn" class="painel" style="box-shadow:none;background:var(--teal-claro);border:0;margin-bottom:14px">
+      <b style="display:block;margin-bottom:8px">+ Nova disciplina em ${esc(c?.nome||"")}</b>
+      <div class="form-lin">
+        <div><label for="nN">Disciplina *</label><input id="nN" required placeholder="Ex.: Farmacologia"></div>
+        <div><label for="nP">Professor</label><input id="nP" list="lp" placeholder="Nome do professor"></div>
+        <div><label for="nT">Turma</label><input id="nT" list="lt" placeholder="Ex.: 2026/2 Noite"></div>
+        <div><label for="nL">Link da pasta da disciplina</label><input id="nL" type="url" placeholder="cole o link da pasta"></div>
+        <button class="btn prim" type="submit">Adicionar</button>
+      </div></form>
+    ${datalists()}
+    <div class="tab-wrap"><table>
+      <thead><tr><th>Disciplina</th><th>Professor</th><th>Turma</th><th>Link da pasta da disciplina</th><th>Visível</th><th></th></tr></thead>
+      <tbody>${lista.length?lista.map(d=>`
+        <tr data-id="${d.id}">
+          <td><input class="eN" value="${esc(d.nome)}"></td>
+          <td><input class="eP" list="lp" value="${esc(d.professor)}"></td>
+          <td><input class="eT" list="lt" value="${esc(d.turma)}"></td>
+          <td><input class="eL" type="url" value="${esc(d.link)}" placeholder="cole o link da pasta" style="${urlOk(d.link)?"":"border-color:#e0a82e;background:#fffbea"}">${urlOk(d.link)?"":`<div class="dica" style="color:#8a5a12">⚠ sem link: abre a pasta do curso</div>`}</td>
+          <td style="text-align:center"><input class="eA" type="checkbox" style="width:auto" ${d.ativo?"checked":""}></td>
+          <td style="white-space:nowrap"><button class="btn peq prim bS" hidden>Salvar</button> <button class="btn peq perigo bX">Excluir</button></td>
+        </tr>`).join(""):`<tr><td colspan="6" class="dica" style="padding:20px;text-align:center">Nenhuma disciplina neste curso. Adicione acima.</td></tr>`}
+      </tbody></table></div>
+    <p class="dica">Dica: edite direto na tabela (ex.: troque o professor ou cole o link) e clique em <b>Salvar</b> na linha.<br>Link da pasta: no OneDrive, botão direito na pasta da disciplina → <b>Compartilhar</b> → <b>Qualquer pessoa com o link</b> + <b>Pode exibir</b> → <b>Copiar link</b>.</p>`;
+  $("selC").onchange=e=>{S.filtroCurso=e.target.value;abaDisc();};
+  $("fn").onsubmit=async ev=>{ev.preventDefault();
+    const corpo={curso_id:S.filtroCurso,nome:$("nN").value.trim(),professor:$("nP").value.trim()||null,turma:$("nT").value.trim()||null,link:$("nL").value.trim()||null};
+    if(corpo.link&&!urlOk(corpo.link)){toast("O link precisa começar com https://",true);return;}
+    const {data,error}=await sb.from("disciplinas").insert(corpo).select().single();
+    if(error){toast(erroMsg(error),true);return;}
+    S.disc=ordenar([...S.disc,data]); toast("Disciplina adicionada."); abaDisc(); };
+  document.querySelectorAll("tbody tr[data-id]").forEach(tr=>{
+    const id=tr.dataset.id, bS=tr.querySelector(".bS"), bX=tr.querySelector(".bX");
+    tr.querySelectorAll("input").forEach(i=>i.addEventListener("input",()=>{tr.classList.add("mudou");bS.hidden=false;}));
+    tr.querySelector(".eA").addEventListener("change",()=>{tr.classList.add("mudou");bS.hidden=false;});
+    bS.onclick=async()=>{
+      const corpo={nome:tr.querySelector(".eN").value.trim(),professor:tr.querySelector(".eP").value.trim()||null,turma:tr.querySelector(".eT").value.trim()||null,
+        link:tr.querySelector(".eL").value.trim()||null,ativo:tr.querySelector(".eA").checked,atualizado_em:new Date().toISOString()};
+      if(!corpo.nome){toast("A disciplina precisa de um nome.",true);return;}
+      if(corpo.link&&!urlOk(corpo.link)){toast("O link precisa começar com https://",true);return;}
+      bS.disabled=true;
+      const {error}=await sb.from("disciplinas").update(corpo).eq("id",id);
+      bS.disabled=false; if(error){toast(erroMsg(error),true);return;}
+      Object.assign(S.disc.find(d=>d.id===id),corpo); tr.classList.remove("mudou"); bS.hidden=true; toast("Salvo.");
+    };
+    bX.onclick=async()=>{
+      if(!bX.classList.contains("conf")){bX.classList.add("conf");bX.textContent="Confirmar";setTimeout(()=>{bX.classList.remove("conf");bX.textContent="Excluir"},4000);return;}
+      const {error}=await sb.from("disciplinas").delete().eq("id",id);
+      if(error){toast(erroMsg(error),true);return;}
+      S.disc=S.disc.filter(d=>d.id!==id); toast("Disciplina removida do portal (a pasta no OneDrive continua)."); abaDisc();
+    };
+  });
+}
+function datalists(){
+  const p=[...new Set(S.disc.map(d=>d.professor).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  const t=[...new Set(S.disc.map(d=>d.turma).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  return `<datalist id="lp">${p.map(x=>`<option value="${esc(x)}">`).join("")}</datalist><datalist id="lt">${t.map(x=>`<option value="${esc(x)}">`).join("")}</datalist>`;
+}
+
+/* --- Trocar professor em lote --- */
+function abaTroca(){
+  const profs=[...new Set(S.disc.map(d=>d.professor).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"pt-BR"));
+  $("aba").innerHTML=`
+    <p class="dica" style="margin-top:0">Use quando um professor sai ou é substituído: troca o nome dele em todas as disciplinas de uma vez.</p>
+    ${datalists()}
+    <form id="ft" class="troca">
+      <div><label for="tDe">Professor atual</label><select id="tDe" required><option value="">Selecione…</option>${profs.map(p=>`<option>${esc(p)}</option>`).join("")}</select></div>
+      <div><label for="tPara">Novo professor</label><input id="tPara" list="lp" required placeholder="Nome do novo professor"></div>
+      <button class="btn prim" type="submit">Trocar</button>
+    </form>
+    <div id="prev" style="margin-top:14px"></div>`;
+  const mostra=()=>{const de=$("tDe").value;const l=S.disc.filter(d=>d.professor===de);
+    $("prev").innerHTML=de?`<div class="dica">Disciplinas de <b>${esc(de)}</b> (${l.length}):</div><ul>${l.map(d=>`<li>${esc(d.nome)} <span class="dica">· ${esc(cursoDe(d.curso_id)?.nome||"")}${d.turma?" · "+esc(d.turma):""}</span></li>`).join("")}</ul>`:"";};
+  $("tDe").onchange=mostra;
+  $("ft").onsubmit=async ev=>{ev.preventDefault();const de=$("tDe").value,para=$("tPara").value.trim();if(!para)return;
+    const b=ev.submitter;b.disabled=true;
+    const {error}=await sb.from("disciplinas").update({professor:para,atualizado_em:new Date().toISOString()}).eq("professor",de);
+    b.disabled=false;if(error){toast(erroMsg(error),true);return;}
+    S.disc.forEach(d=>{if(d.professor===de)d.professor=para});toast(`Pronto: ${de} → ${para}`);abaTroca();};
+}
+
+/* --- Cursos --- */
+function abaCursos(){
+  $("aba").innerHTML=`
+    <p class="dica" style="margin-top:0">O <b>link</b> é o da pasta do curso no OneDrive (Compartilhar → "Qualquer pessoa com o link" → "Pode exibir" → Copiar link).</p>
+    <div class="tab-wrap"><table>
+      <thead><tr><th>Ordem</th><th>Curso</th><th>Sigla</th><th>Cor</th><th>Link da pasta do curso</th><th>Visível</th><th></th></tr></thead>
+      <tbody>${S.cursos.map(c=>`
+        <tr data-id="${c.id}">
+          <td style="width:70px"><input class="cO" type="number" value="${c.ordem}"></td>
+          <td><input class="cN" value="${esc(c.nome)}"></td>
+          <td style="width:80px"><input class="cS" maxlength="4" value="${esc(c.sigla)}"></td>
+          <td><input class="cC cor" type="color" value="${esc(c.cor)}"></td>
+          <td><input class="cL" type="url" value="${esc(c.link)}" placeholder="https://…"></td>
+          <td style="text-align:center"><input class="cA" type="checkbox" style="width:auto" ${c.ativo?"checked":""}></td>
+          <td style="white-space:nowrap"><button class="btn peq prim bS" hidden>Salvar</button> <button class="btn peq perigo bX">Excluir</button></td>
+        </tr>`).join("")}</tbody></table></div>
+    <button class="btn" id="novoC" style="margin-top:12px">+ Novo curso</button>
+    <p class="dica">Excluir um curso apaga também as disciplinas dele no portal (as pastas do OneDrive não são afetadas).</p>`;
+  $("novoC").onclick=async()=>{const {data,error}=await sb.from("cursos").insert({nome:"Novo curso",sigla:"NC",ordem:S.cursos.length+1}).select().single();
+    if(error){toast(erroMsg(error),true);return;} S.cursos.push(data); abaCursos(); };
+  document.querySelectorAll("tbody tr[data-id]").forEach(tr=>{
+    const id=tr.dataset.id,bS=tr.querySelector(".bS"),bX=tr.querySelector(".bX");
+    tr.querySelectorAll("input").forEach(i=>["input","change"].forEach(ev=>i.addEventListener(ev,()=>{tr.classList.add("mudou");bS.hidden=false;})));
+    bS.onclick=async()=>{
+      const corpo={ordem:+tr.querySelector(".cO").value||0,nome:tr.querySelector(".cN").value.trim(),sigla:tr.querySelector(".cS").value.trim(),
+        cor:tr.querySelector(".cC").value,link:tr.querySelector(".cL").value.trim()||null,ativo:tr.querySelector(".cA").checked};
+      if(!corpo.nome){toast("O curso precisa de um nome.",true);return;}
+      if(corpo.link&&!urlOk(corpo.link)){toast("O link precisa começar com https://",true);return;}
+      const {error}=await sb.from("cursos").update(corpo).eq("id",id);
+      if(error){toast(erroMsg(error),true);return;}
+      Object.assign(S.cursos.find(c=>c.id===id),corpo); S.cursos.sort((a,b)=>a.ordem-b.ordem); tr.classList.remove("mudou"); bS.hidden=true; toast("Curso salvo.");
+    };
+    bX.onclick=async()=>{
+      if(!bX.classList.contains("conf")){bX.classList.add("conf");bX.textContent="Confirmar";setTimeout(()=>{bX.classList.remove("conf");bX.textContent="Excluir"},4000);return;}
+      const {error}=await sb.from("cursos").delete().eq("id",id);
+      if(error){toast(erroMsg(error),true);return;}
+      S.cursos=S.cursos.filter(c=>c.id!==id); S.disc=S.disc.filter(d=>d.curso_id!==id); toast("Curso excluído."); abaCursos();
+    };
+  });
+}
+
+
+/* ======================= AJUDA PARA O ALUNO ======================= */
+function modal(html){ fecharModal(); const m=document.createElement("div"); m.className="modal"; m.id="modal";
+  m.innerHTML=`<div class="caixa" role="dialog" aria-modal="true"><button class="fechar" aria-label="Fechar" onclick="fecharModal()">✕</button>${html}</div>`;
+  m.addEventListener("click",e=>{ if(e.target===m) fecharModal(); }); document.body.appendChild(m); }
+function fecharModal(){ $("modal")?.remove(); }
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") fecharModal(); });
+
+const CEL = (itens, dedo) => `<div class="cel"><div class="tp">Portal PROZ</div>${itens}<div class="dedo" style="${dedo}">👆</div></div>`;
+function ajuda(){
+  modal(`<h3>Como usar o Portal de Aulas</h3><p class="dica" style="font-size:1rem">São só 3 toques:</p>
+  <div class="passos3">
+    <div class="passo3"><span class="n">1</span>${CEL(`<div class="it hl"><span class="sq" style="background:#e06a00"></span>Enfermagem</div><div class="it"><span class="sq" style="background:#593493"></span>Radiologia</div><div class="it"><span class="sq" style="background:#8a5a12"></span>Administração</div>`,"left:70px;top:70px")}<p>Toque no seu <u>curso</u></p></div>
+    <div class="passo3"><span class="n">2</span>${CEL(`<div class="it">Farmacologia<br>📖 Abrir · ⬇ Baixar</div><div class="it hl">Saúde Coletiva<br>📖 Abrir · ⬇ Baixar</div>`,"left:22px;top:118px")}<p>Ache a sua <u>disciplina</u> e toque em <b>Abrir aula</b></p></div>
+    <div class="passo3"><span class="n">3</span>${CEL(`<div class="it">📁 Saúde Coletiva</div><div class="it hl"><span class="sq" style="background:#b42318"></span>Aula 01.pdf</div><div class="it"><span class="sq" style="background:#b42318"></span>Aula 02.pdf</div>`,"left:70px;top:98px")}<p>Toque na <u>aula</u>. Ela abre na tela!</p></div>
+  </div>
+  <div class="dica-box">💡 <b>Não precisa baixar para estudar.</b> Tocando na aula, ela já abre para ler. Use <b>Baixar</b> só se quiser guardar no celular para ver sem internet.</div>
+  <div class="dica-box" style="background:var(--teal-claro)">📱 <b>Deixe o portal na tela do celular:</b> no Chrome, toque em <b>⋮</b> (três pontinhos) → <b>Adicionar à tela inicial</b>. No iPhone, toque em <b>Compartilhar</b> (quadrado com seta) → <b>Adicionar à Tela de Início</b>.</div>`);
+}
+
+function guiaBaixar(link, nome){
+  const conteudo = so => so==="and" ? `
+    <ol class="lista-guia">
+      <li>Toque no botão verde <b>Abrir a pasta</b> aqui embaixo.</li>
+      <li>Na pasta, toque nos <b>três pontinhos ⋮</b> ao lado da aula.</li>
+      <li>Toque em <b>Baixar</b>.</li>
+      <li>Pronto! A aula fica no app <b>Arquivos</b> (ou <b>Meus Arquivos</b>), na pasta <b>Download</b>.</li>
+    </ol>` : `
+    <ol class="lista-guia">
+      <li>Toque no botão verde <b>Abrir a pasta</b> aqui embaixo.</li>
+      <li>Toque na aula e depois no botão <b>Baixar</b> (ou no ícone ⬇).</li>
+      <li>Se aparecer uma pergunta, toque em <b>Baixar</b> de novo.</li>
+      <li>Pronto! A aula fica no app <b>Arquivos</b>, na pasta <b>Downloads</b>. Também aparece na setinha azul ⬇ do Safari.</li>
+    </ol>`;
+  modal(`<h3>Baixar: ${esc(nome)}</h3>
+    <p class="dica" style="font-size:1rem">Qual é o seu celular?</p>
+    <div class="guia-abas"><button id="gA" class="on">🤖 Android<br><span class="dica">Samsung, Motorola, Xiaomi…</span></button><button id="gI">🍎 iPhone</button></div>
+    <div id="gC">${conteudo("and")}</div>
+    <a class="cta" style="font-size:1.1rem;padding:12px 20px;margin-top:6px" href="${esc(link)}" target="_blank" rel="noopener" onclick="setTimeout(fecharModal,300)">📂 Abrir a pasta</a>
+    <div class="dica-box">💡 Só quer estudar? Não precisa baixar: tocando na aula, ela já abre na tela.</div>`);
+  const sel = so => { $("gA").className=so==="and"?"on":""; $("gI").className=so==="ios"?"on":""; $("gC").innerHTML=conteudo(so); };
+  $("gA").onclick=()=>sel("and"); $("gI").onclick=()=>sel("ios");
+  if(/iPhone|iPad/i.test(navigator.userAgent)) sel("ios");
+}
+
+
+/* ======================= IMPORTAR PLANILHA ======================= */
+const COLS = ["Curso","Disciplina","Professor","Turma","Link da pasta"];
+const semAcento = t => String(t??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").trim().toLowerCase();
+function chaveCol(h){ const k=semAcento(h);
+  if(k.startsWith("curso")) return "curso"; if(k.startsWith("disciplina")) return "nome";
+  if(k.startsWith("prof")) return "professor"; if(k.startsWith("turma")) return "turma";
+  if(k.startsWith("link")||k.includes("pasta")||k.startsWith("url")) return "link"; return null; }
+function acharCurso(txt){ const k=semAcento(txt); if(!k) return null;
+  return S.cursos.find(c=>semAcento(c.nome)===k) || S.cursos.find(c=>semAcento(c.sigla)===k) || S.cursos.find(c=>semAcento(c.nome).includes(k)) || null; }
+
+function baixarModelo(){
+  const linhas=[COLS];
+  const exemplo=S.cursos.length?S.cursos:[{nome:"Técnico em Enfermagem"}];
+  linhas.push([exemplo[0].nome,"Farmacologia","Carla Mendes","2026/2 Noite","https://...sharepoint.com/:f:/..."]);
+  linhas.push([exemplo[0].nome,"Saúde Coletiva","Rafael Dias","2026/1 Manhã",""]);
+  const ws=XLSX.utils.aoa_to_sheet(linhas); ws["!cols"]=[{wch:38},{wch:32},{wch:24},{wch:16},{wch:60}];
+  const cursos=XLSX.utils.aoa_to_sheet([["Cursos cadastrados (copie o nome exato)"],...S.cursos.map(c=>[c.nome])]); cursos["!cols"]=[{wch:45}];
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,ws,"Disciplinas"); XLSX.utils.book_append_sheet(wb,cursos,"Cursos");
+  XLSX.writeFile(wb,"modelo-disciplinas-proz.xlsx");
+}
+
+function abaImp(){
+  if(typeof XLSX==="undefined"){ $("aba").innerHTML=`<div class="aviso">Não consegui carregar o leitor de planilhas. Verifique a internet e recarregue a página.</div>`; return; }
+  $("aba").innerHTML=`
+    <p style="margin-top:0">Cadastre ou atualize várias disciplinas de uma vez com uma planilha do Excel (.xlsx) ou .csv com estas colunas:</p>
+    <div class="tab-wrap"><table style="min-width:0;margin-bottom:10px"><thead><tr>${COLS.map(c=>`<th>${c}</th>`).join("")}</tr></thead>
+      <tbody><tr><td>Técnico em Enfermagem</td><td>Farmacologia</td><td>Carla Mendes</td><td>2026/2 Noite</td><td class="dica">https://…sharepoint.com/…</td></tr></tbody></table></div>
+    <p class="dica">Curso e Disciplina são obrigatórios. No Curso, pode usar o nome ou a sigla (ENF, RAD…). Se a disciplina já existir no curso, ela é <b>atualizada</b>. Células vazias não apagam o que já está cadastrado.</p>
+    <div class="linha-acoes" style="margin:12px 0"><button class="btn" onclick="baixarModelo()">⬇ Baixar planilha modelo</button></div>
+    <label class="drop" id="drop" for="arq"><div style="font-size:2rem">📄</div><b>Clique para escolher a planilha</b><br><span class="dica">ou arraste o arquivo para cá</span>
+      <input id="arq" type="file" accept=".xlsx,.xls,.csv" hidden></label>
+    <div id="prev" style="margin-top:16px"></div>`;
+  const drop=$("drop");
+  $("arq").onchange=e=>{ if(e.target.files[0]) lerPlanilha(e.target.files[0]); };
+  ["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("over")}));
+  ["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("over")}));
+  drop.addEventListener("drop",e=>{ const f=e.dataTransfer.files[0]; if(f) lerPlanilha(f); });
+}
+
+async function lerPlanilha(arquivo){
+  try{
+    const wb=XLSX.read(await arquivo.arrayBuffer(),{type:"array"});
+    const aba=wb.Sheets[wb.SheetNames[0]];
+    const matriz=XLSX.utils.sheet_to_json(aba,{header:1,defval:"",raw:false});
+    const iCab=matriz.findIndex(l=>l.some(c=>chaveCol(c)==="nome"));
+    if(iCab<0){ toast("Não encontrei a coluna \"Disciplina\" na planilha.",true); return; }
+    const mapa=matriz[iCab].map(chaveCol);
+    const linhas=matriz.slice(iCab+1).map((l,i)=>{ const o={_linha:iCab+i+2}; mapa.forEach((k,j)=>{ if(k) o[k]=String(l[j]??"").trim(); }); return o; })
+      .filter(o=>o.nome||o.curso||o.professor||o.link);
+    analisar(linhas, arquivo.name);
+  }catch(e){ toast("Não consegui ler o arquivo. Salve como .xlsx ou .csv e tente de novo.",true); }
+}
+
+function analisar(linhas, nomeArq){
+  const vistos=new Set();
+  S._imp = linhas.map(o=>{
+    const r={...o, status:"", msg:""};
+    const c=acharCurso(o.curso);
+    if(!o.curso){ r.status="err"; r.msg="Falta o curso"; return r; }
+    if(!c){ r.status="err"; r.msg=`Curso "${o.curso}" não cadastrado`; return r; }
+    if(!o.nome){ r.status="err"; r.msg="Falta a disciplina"; return r; }
+    if(o.link && !urlOk(o.link)){ r.status="err"; r.msg="Link inválido (precisa começar com https://)"; return r; }
+    const chave=c.id+"|"+semAcento(o.nome);
+    if(vistos.has(chave)){ r.status="err"; r.msg="Repetida na planilha"; return r; } vistos.add(chave);
+    r.curso_id=c.id; r.cursoNome=c.nome;
+    const ex=S.disc.find(d=>d.curso_id===c.id && semAcento(d.nome)===semAcento(o.nome));
+    if(ex){ r.existente=ex;
+      const muda=["professor","turma","link"].some(k=>o[k] && o[k]!==(ex[k]||""));
+      r.status=muda?"atu":"igual"; r.msg=muda?"Atualizar":"Sem mudanças"; }
+    else { r.status="nova"; r.msg="Nova"; }
+    return r;
+  });
+  const n=k=>S._imp.filter(r=>r.status===k).length;
+  const rot={nova:"Nova",atu:"Atualizar",err:"Erro",igual:"Sem mudanças"};
+  $("prev").innerHTML=`
+    <div class="painel" style="box-shadow:none">
+      <b>${esc(nomeArq)}</b> — ${S._imp.length} linha${S._imp.length===1?"":"s"}:
+      <span class="st nova">${n("nova")} novas</span> <span class="st atu">${n("atu")} para atualizar</span>
+      <span class="st igual">${n("igual")} sem mudanças</span> <span class="st err">${n("err")} com erro</span>
+      <div class="tab-wrap" style="margin-top:12px;max-height:420px;overflow:auto"><table>
+        <thead><tr><th>Linha</th><th>Situação</th><th>Curso</th><th>Disciplina</th><th>Professor</th><th>Turma</th><th>Link</th></tr></thead>
+        <tbody>${S._imp.map(r=>`<tr><td class="dica">${r._linha}</td><td><span class="st ${r.status}">${esc(r.status==="err"?r.msg:rot[r.status])}</span></td>
+          <td>${esc(r.cursoNome||r.curso)}</td><td><b>${esc(r.nome)}</b></td><td>${esc(r.professor)}</td><td>${esc(r.turma)}</td>
+          <td class="dica" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.link?"✓ "+esc(r.link):"—"}</td></tr>`).join("")}</tbody></table></div>
+      ${n("err")?`<p class="dica" style="color:#b42318">As linhas com erro serão ignoradas. Corrija na planilha e importe de novo se quiser incluí-las.</p>`:""}
+      <div class="linha-acoes" style="margin-top:12px">
+        ${n("nova")+n("atu")?`<button class="btn prim" id="confImp">Importar ${n("nova")+n("atu")} disciplina${n("nova")+n("atu")===1?"":"s"}</button>`:`<span class="dica">Nada para importar.</span>`}
+        <button class="btn" onclick="abaImp()">Cancelar</button></div>
+    </div>`;
+  if($("confImp")) $("confImp").onclick=importar;
+}
+
+async function importar(){
+  const b=$("confImp"); b.disabled=true; b.textContent="Importando…";
+  const agora=new Date().toISOString();
+  const novas=S._imp.filter(r=>r.status==="nova").map(r=>({curso_id:r.curso_id,nome:r.nome,professor:r.professor||null,turma:r.turma||null,link:r.link||null}));
+  const atus=S._imp.filter(r=>r.status==="atu");
+  let ok=0, falhas=0;
+  if(novas.length){ const {data,error}=await sb.from("disciplinas").insert(novas).select();
+    if(error){ toast("Erro ao importar: "+erroMsg(error),true); b.disabled=false; b.textContent="Tentar de novo"; return; }
+    S.disc=ordenar([...S.disc,...data]); ok+=data.length; }
+  for(const r of atus){
+    const corpo={atualizado_em:agora}; ["professor","turma","link"].forEach(k=>{ if(r[k]) corpo[k]=r[k]; });
+    const {error}=await sb.from("disciplinas").update(corpo).eq("id",r.existente.id);
+    if(error) falhas++; else { Object.assign(r.existente,corpo); ok++; }
+  }
+  toast(`Pronto! ${ok} disciplina${ok===1?"":"s"} importada${ok===1?"":"s"}${falhas?` · ${falhas} com erro`:""}.`, !!falhas);
+  S.aba="disc"; if(atus[0]||novas[0]) S.filtroCurso=(novas[0]||atus[0]).curso_id; renderCoord();
+}
+
+/* ======================= QR CODES ======================= */
+const LOGO = document.querySelector("header img")?.src||"";
+const baseURL = () => location.origin + location.pathname;
+function abaQR(){
+  const itens=[{id:"",nome:"Portal completo (todos os cursos)",sig:"PROZ",cor:"#593493",url:baseURL()},
+    ...S.cursos.filter(c=>c.ativo).map(c=>({id:c.id,nome:c.nome,sig:c.sigla,cor:c.cor,url:baseURL()+"#c-"+c.id}))];
+  $("aba").innerHTML=`<p class="dica" style="margin-top:0">O aluno aponta a câmera do celular para o QR Code e o portal abre direto no curso dele. Imprima o cartaz e cole na sala, no mural ou no primeiro slide da aula.</p>
+    ${typeof QRCode==="undefined"?`<div class="aviso">Não consegui carregar o gerador de QR Code. Verifique a internet e recarregue a página.</div>`:""}
+    <div class="qr-grade">${itens.map((it,i)=>`<div class="qr-card">
+      <div class="sig" style="background:${esc(it.cor)};width:40px;height:40px;font-size:.85rem">${esc(it.sig)}</div>
+      <b>${esc(it.nome)}</b><div class="qr" id="qr${i}"></div>
+      <div class="linha-acoes" style="justify-content:center;display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn peq prim" onclick="cartaz(${i})">🖨 Imprimir cartaz</button>
+        <button class="btn peq" onclick="copiar('${esc(it.url)}')">Copiar link</button></div></div>`).join("")}</div>`;
+  S._qr=itens;
+  if(typeof QRCode!=="undefined") itens.forEach((it,i)=>new QRCode($("qr"+i),{text:it.url,width:300,height:300,correctLevel:QRCode.CorrectLevel.M}));
+}
+function copiar(t){ navigator.clipboard?.writeText(t).then(()=>toast("Link copiado."),()=>toast(t)); }
+function qrDataURL(i){ const el=$("qr"+i); const c=el?.querySelector("canvas"); return c?c.toDataURL("image/png"):(el?.querySelector("img")?.src||""); }
+function cartaz(i){
+  const it=S._qr[i], img=qrDataURL(i);
+  const w=window.open("","_blank"); if(!w){ toast("Permita pop-ups para imprimir o cartaz.",true); return; }
+  w.document.write(`<!DOCTYPE html><html lang="pt-BR"><head><meta charset="utf-8"><title>Cartaz – ${esc(it.nome)}</title>
+  <style>@page{size:A4;margin:14mm}*{-webkit-print-color-adjust:exact;print-color-adjust:exact}body{font-family:"Source Sans 3",Arial,sans-serif;color:#1c2833;text-align:center;margin:0}
+  .top{background:${esc(it.cor)};color:#fff;border-radius:18px;padding:22px}.top h1{margin:0;font:700 34px Georgia,serif}.top p{margin:6px 0 0;font-size:20px}
+  h2{font:700 30px Georgia,serif;margin:26px 0 6px}.qr{width:330px;height:330px;margin:10px auto;border:10px solid #fff;outline:3px solid ${esc(it.cor)};border-radius:10px}
+  .aponte{font-size:24px;font-weight:700;margin:6px 0 24px}.passos{display:flex;gap:14px;text-align:left}
+  .p{flex:1;border:3px solid #dbe3ea;border-radius:14px;padding:14px;font-size:19px}.p b{display:block;font-size:22px;color:${esc(it.cor)}}
+  .rod{margin-top:22px;font-size:15px;color:#5d6d7c;word-break:break-all}
+  @media print{.noprint{display:none}}</style></head><body>
+  <div class="top" style="background:linear-gradient(115deg,#4a2a80 0%,#593493 38%,#8a3f86 68%,#d8622a 90%,#ff7f00 100%)"><img src="${LOGO}" alt="PROZ" style="height:60px"><h1 style="margin-top:8px">Portal de Aulas</h1><p>${esc(it.nome)}</p></div>
+  <h2>Materiais das aulas no seu celular</h2>
+  <img class="qr" src="${img}" alt="QR Code">
+  <div class="aponte">📷 Aponte a câmera do celular aqui</div>
+  <div class="passos"><div class="p"><b>1. Toque</b>na sua disciplina</div><div class="p"><b>2. Abrir aula</b>para ler na tela</div><div class="p"><b>3. Baixar</b>para guardar no celular</div></div>
+  <div class="rod">Ou digite: ${esc(it.url)}</div>
+  <p class="noprint"><button onclick="print()" style="font-size:18px;padding:10px 20px;margin-top:16px">🖨 Imprimir</button></p>
+  <script>setTimeout(()=>print(),600)<\/script></body></html>`);
+  w.document.close();
+}
+
+/* ======================= INÍCIO ======================= */
+(async()=>{
+  if(configurado){
+    const {data}=await sb.auth.getSession(); S.sessao=data.session;
+    sb.auth.onAuthStateChange((ev,sess)=>{ S.sessao=sess; setTimeout(()=>{ if(S.tela==="coord") renderCoord(); },0); });
+  }
+  if(location.hash==="#coordenacao") S.tela="coord";
+  await carregar();
+  if(location.hash.startsWith("#c-")){ const id=location.hash.slice(3); if(cursoDe(id)){ S.tela="curso"; S.curso=id; } }
+  render();
+})();
+</script>
+</body>
+</html>
