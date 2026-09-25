@@ -197,7 +197,6 @@ function renderCurso(){
     <div class="painel" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center">
       <div style="flex:1;min-width:200px"><input id="bD" type="search" placeholder="Buscar disciplina ou professor…"></div>
       ${turmas.length?`<div style="flex:1;min-width:180px"><select id="fT"><option value="">Todas as turmas</option>${turmas.map(t=>`<option>${esc(t)}</option>`).join("")}</select></div>`:""}
-      ${urlOk(c.link)?`<a class="btn" href="${esc(c.link)}" target="_blank" rel="noopener">📁 Pasta completa do curso ↗</a>`:""}
     </div>
     <div class="grade" id="gD" style="margin-top:16px"></div>`;
   const pinta=()=>{
